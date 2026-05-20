@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* --- Sidebar --- */
+  --color-side-text: #cbd5e1;
+  --color-side-icon: #38bdf8;
+  --color-slider-bg: #0d2137;
+  --color-slider-dark-bg: #060e1a;
+
+  /* --- Page backgrounds --- */
+  --color-main-bg: #eef5fb;
+  --color-main-dark-bg: #07111e;
+
+  /* --- Cards --- */
+  --color-box-bg: #ffffff;
+  --color-box-dark-bg: #0e1f35;
+
+  /* --- Stat card accents --- */
+  --color-box-border: #dbeafe;
+  --color-box-border-bg: #eff6ff;
+  --color-box-border-warn: #fed7aa;
+  --color-box-border-warn-bg: #fff7ed;
+}
+
+/* Smooth color crossfade on every element (dark mode toggle, etc.) */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-duration: 250ms;
+  transition-timing-function: ease;
+}
+
+/* Override for things that should animate differently */
+.no-color-transition {
+  transition-property: transform, opacity, width, max-width !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: #94a3b8; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #64748b; }
+.dark ::-webkit-scrollbar-thumb { background: #1e3a5c; }
