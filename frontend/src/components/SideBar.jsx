@@ -1,26 +1,57 @@
 import { useState } from "react"
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { IoMdHome, IoMdPeople } from "react-icons/io"
-import { MdShoppingCart, MdAnalytics } from "react-icons/md"
+import { MdShoppingCart, MdAnalytics, MdInventory2 } from "react-icons/md"
 import { GiShoppingBag } from "react-icons/gi"
 import { FaHandsHelping } from "react-icons/fa"
 import { IoHelp } from "react-icons/io5"
 import { RiMenuFoldLine, RiMenuUnfoldLine } from "react-icons/ri"
+import { FiLogOut, FiShield } from "react-icons/fi"
+import { BsBoxSeam } from "react-icons/bs"
 import DarkMode from "./DarkMode"
+import { useAuth } from "../context/AuthContext"
 
-const NAV = [
+const ADMIN_NAV = [
   { to: "/",          Icon: IoMdHome,       label: "Home" },
-  { to: "/product",   Icon: MdShoppingCart, label: "Products" },
-  { to: "/order",     Icon: GiShoppingBag,  label: "Orders" },
-  { to: "/customer",  Icon: IoMdPeople,     label: "Customers" },
-  { to: "/supplier",  Icon: FaHandsHelping, label: "Suppliers" },
+  { to: "/products",   Icon: MdShoppingCart, label: "Products" },
+  { to: "/inventories", Icon: BsBoxSeam,      label: "Inventory" },
+  { to: "/orders",     Icon: GiShoppingBag,  label: "Orders" },
+  { to: "/customers",  Icon: IoMdPeople,     label: "Customers" },
+  { to: "/suppliers",  Icon: FaHandsHelping, label: "Suppliers" },
   { to: "/analysis",  Icon: MdAnalytics,    label: "Analysis" },
   { to: "/about",     Icon: IoHelp,         label: "About" },
 ]
 
+const CUSTOMER_NAV = [
+  { to: "/",          Icon: IoMdHome,       label: "Home" },
+  { to: "/products",   Icon: MdShoppingCart, label: "Storefront" },
+  { to: "/orders",     Icon: GiShoppingBag,  label: "My Orders" },
+  { to: "/about",     Icon: IoHelp,         label: "About" },
+]
+
+// Get initials from a name e.g. "John Doe" → "JD"
+function initials(name = "") {
+  return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()
+}
+
 export default function SideBar({ isDark, setIsDark }) {
   const [isOpen, setIsOpen] = useState(true)
-  const { pathname } = useLocation()
+  const { pathname }        = useLocation()
+  const { user, isAdmin, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate("/login")
+  }
+
+  // Dynamic nav selection
+  const isCustomer = user?.role === "customer"
+  let menu = isCustomer ? [...CUSTOMER_NAV] : [...ADMIN_NAV]
+  
+  if (isAdmin) {
+    menu.push({ to: "/staff", Icon: FiShield, label: "Staff" })
+  }
 
   return (
     <aside
@@ -29,7 +60,6 @@ export default function SideBar({ isDark, setIsDark }) {
         bg-slider-bg dark:bg-slider-dark-bg
         border-r border-white/5
         overflow-hidden
-        /* Use no-color-transition so width animates fast, not slow like color */
         transition-[width] duration-300 ease-in-out
         ${isOpen ? "w-60" : "w-[68px]"}
       `}
@@ -40,25 +70,25 @@ export default function SideBar({ isDark, setIsDark }) {
         ${isOpen ? "justify-between" : "justify-center"}
       `}>
         {isOpen && (
-          <span className="text-white font-semibold tracking-wide text-sm select-none">
-            <span className="text-side-icon">Inv</span>entory
-          </span>
+          <div className="flex items-center gap-2">
+            <MdInventory2 className="text-side-icon text-lg" />
+            <span className="text-white font-semibold tracking-wide text-sm select-none">
+              <span className="text-side-icon">Inv</span>entory
+            </span>
+          </div>
         )}
         <button
           onClick={() => setIsOpen(o => !o)}
           title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
           className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors duration-150"
         >
-          {isOpen
-            ? <RiMenuFoldLine  size={20} />
-            : <RiMenuUnfoldLine size={20} />
-          }
+          {isOpen ? <RiMenuFoldLine size={20} /> : <RiMenuUnfoldLine size={20} />}
         </button>
       </div>
 
       {/* ── Nav links ── */}
       <nav className="flex-1 py-3 px-2 flex flex-col gap-0.5 overflow-y-auto overflow-x-hidden">
-        {NAV.map(({ to, Icon, label }) => {
+        {menu.map(({ to, Icon, label }) => {
           const active = pathname === to
           return (
             <Link
@@ -75,7 +105,6 @@ export default function SideBar({ isDark, setIsDark }) {
                 }
               `}
             >
-              {/* Left accent bar for active item */}
               <span className={`
                 absolute left-0 top-1/2 -translate-y-1/2
                 w-0.5 h-5 rounded-r-full bg-side-icon
@@ -88,7 +117,6 @@ export default function SideBar({ isDark, setIsDark }) {
                 ${active ? "text-side-icon" : "text-slate-500 group-hover:text-side-icon"}
               `} />
 
-              {/* Text slides in/out with sidebar width */}
               <span className={`
                 overflow-hidden transition-[max-width,opacity] duration-300 ease-in-out
                 ${isOpen ? "max-w-xs opacity-100" : "max-w-0 opacity-0"}
@@ -100,18 +128,67 @@ export default function SideBar({ isDark, setIsDark }) {
         })}
       </nav>
 
-      {/* ── Dark mode toggle ── */}
-      <div className={`
-        px-4 py-4 shrink-0 border-t border-white/5
-        flex items-center gap-3
-        ${isOpen ? "justify-between" : "justify-center"}
-      `}>
-        {isOpen && (
-          <span className="text-xs text-slate-500 select-none">
-            {isDark ? "Dark" : "Light"} mode
+      {/* ── User info + logout ── */}
+      <div className="shrink-0 border-t border-white/5 px-2 py-3 space-y-1">
+        <div className={`
+          flex items-center gap-3 px-3 py-2 rounded-xl
+          ${isOpen ? "" : "justify-center"}
+        `}>
+          <div
+            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+            style={{ background: "#38bdf8" }}
+          >
+            {initials(user?.name)}
+          </div>
+
+          <div className={`
+            overflow-hidden transition-[max-width,opacity] duration-300 ease-in-out min-w-0
+            ${isOpen ? "max-w-xs opacity-100" : "max-w-0 opacity-0"}
+          `}>
+            <p className="text-white text-xs font-medium truncate leading-tight">
+              {user?.name || "—"}
+            </p>
+            <span className={`
+              text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase
+              ${isAdmin
+                ? "bg-sky-500/20 text-sky-400"
+                : isCustomer 
+                  ? "bg-emerald-500/20 text-emerald-400"
+                  : "bg-slate-500/20 text-slate-400"
+              }
+            `}>
+              {user?.role || "staff"}
+            </span>
+          </div>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          title={!isOpen ? "Logout" : undefined}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+                     text-sm font-medium text-slate-400 hover:text-white hover:bg-white/[.06]
+                     transition-colors duration-150"
+        >
+          <FiLogOut className="shrink-0 w-5 h-5" />
+          <span className={`
+            overflow-hidden transition-[max-width,opacity] duration-300 ease-in-out whitespace-nowrap
+            ${isOpen ? "max-w-xs opacity-100" : "max-w-0 opacity-0"}
+          `}>
+            Logout
           </span>
-        )}
-        <DarkMode isDark={isDark} setIsDark={setIsDark} />
+        </button>
+
+        <div className={`
+          px-3 py-2 flex items-center gap-3
+          ${isOpen ? "justify-between" : "justify-center"}
+        `}>
+          {isOpen && (
+            <span className="text-xs text-slate-500 select-none">
+              {isDark ? "Dark" : "Light"} mode
+            </span>
+          )}
+          <DarkMode isDark={isDark} setIsDark={setIsDark} />
+        </div>
       </div>
     </aside>
   )

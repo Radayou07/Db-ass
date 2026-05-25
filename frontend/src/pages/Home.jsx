@@ -1,10 +1,15 @@
-import { FiBox, FiShoppingCart, FiLayers, FiAlertTriangle } from "react-icons/fi"
+import { useState, useEffect } from "react"
+import { useAuth } from "../context/AuthContext"
+import { FiBox, FiShoppingCart, FiLayers, FiAlertTriangle, FiActivity, FiUsers, FiHeart, FiPackage, FiShoppingBag, FiTag } from "react-icons/fi"
 
 /* ─── Tiny donut chart ─── */
 function DonutChart({ data, size = 130 }) {
+  if (!data || data.length === 0) return null
   const cx = size / 2, cy = size / 2
   const r = size * 0.38, ir = size * 0.25
-  const total = data.reduce((s, d) => s + d.value, 0)
+  const total = data.reduce((s, d) => s + (d.value || 0), 0)
+  if (total === 0) return <div className="text-[10px] text-slate-400">No data</div>
+  
   let cum = -90
   const toRad = a => (a * Math.PI) / 180
 
@@ -33,26 +38,24 @@ function DonutChart({ data, size = 130 }) {
 
 /* ─── Time series line chart ─── */
 function TimeSeriesChart({ data }) {
+  if (!data || data.length === 0) return null
   const W = 460, H = 170
   const pad = { top: 12, right: 12, bottom: 28, left: 38 }
   const cW = W - pad.left - pad.right
   const cH = H - pad.top - pad.bottom
-  const max = Math.max(...data.flatMap(d => [d.income, d.outcome]))
+  const max = Math.max(...data.flatMap(d => [d.income || 0, d.outcome || 0])) || 1
   
   const getX = (i) => pad.left + (i / (data.length - 1)) * cW
   const getY = (value) => pad.top + cH * (1 - value / max)
   
-  // Generate line paths
-  const incomePoints = data.map((d, i) => `${getX(i)},${getY(d.income)}`).join(" ")
-  const outcomePoints = data.map((d, i) => `${getX(i)},${getY(d.outcome)}`).join(" ")
+  const incomePoints = data.map((d, i) => `${getX(i)},${getY(d.income || 0)}`).join(" ")
+  const outcomePoints = data.map((d, i) => `${getX(i)},${getY(d.outcome || 0)}`).join(" ")
   
-  // Generate area paths
-  const incomeArea = `${incomePoints} ${getX(data.length - 1)},${pad.top + cH} ${getX(0)},${pad.top + cH} Z`
-  const outcomeArea = `${outcomePoints} ${getX(data.length - 1)},${pad.top + cH} ${getX(0)},${pad.top + cH} Z`
+  const incomeArea = `M${incomePoints} ${getX(data.length - 1)},${pad.top + cH} ${getX(0)},${pad.top + cH} Z`
+  const outcomeArea = `M${outcomePoints} ${getX(data.length - 1)},${pad.top + cH} ${getX(0)},${pad.top + cH} Z`
 
   return (
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
-      {/* Grid lines */}
       {[0, 0.25, 0.5, 0.75, 1].map(t => {
         const y = pad.top + cH * (1 - t)
         return (
@@ -64,73 +67,22 @@ function TimeSeriesChart({ data }) {
           </g>
         )
       })}
-      
-      {/* Area fills */}
       <path d={incomeArea} fill="#38bdf8" fillOpacity="0.1" />
       <path d={outcomeArea} fill="#f97316" fillOpacity="0.1" />
-      
-      {/* Line paths */}
       <polyline points={incomePoints} fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       <polyline points={outcomePoints} fill="none" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      
-      {/* Data points */}
       {data.map((d, i) => (
         <g key={i}>
-          <circle cx={getX(i)} cy={getY(d.income)} r="3.5" fill="#38bdf8" stroke="white" strokeWidth="1.5" />
-          <circle cx={getX(i)} cy={getY(d.outcome)} r="3.5" fill="#f97316" stroke="white" strokeWidth="1.5" />
+          <circle cx={getX(i)} cy={getY(d.income || 0)} r="3.5" fill="#38bdf8" stroke="white" strokeWidth="1.5" />
+          <circle cx={getX(i)} cy={getY(d.outcome || 0)} r="3.5" fill="#f97316" stroke="white" strokeWidth="1.5" />
         </g>
       ))}
-      
-      {/* X-axis labels */}
       {data.map((d, i) => (
         <text key={i} x={getX(i)} y={H - 7} textAnchor="middle" fontSize="8.5" fill="#94a3b8">{d.month}</text>
       ))}
     </svg>
   )
 }
-
-/* ─── Data ─── */
-const STATS = [
-  { label: "Total Products", value: "1,284", sub: "+12 this week", Icon: FiBox,          card: "border-box-border    bg-box-border-bg",        icon: "text-blue-400 bg-blue-50 dark:bg-blue-950/40" },
-  { label: "Orders",         value: "342",   sub: "+28 today",     Icon: FiShoppingCart,  card: "border-box-border    bg-box-border-bg",        icon: "text-sky-400  bg-sky-50  dark:bg-sky-950/40"  },
-  { label: "Total Stock",    value: "24,590",sub: "across 8 stores",Icon: FiLayers,       card: "border-box-border    bg-box-border-bg",        icon: "text-teal-400 bg-teal-50 dark:bg-teal-950/40" },
-  { label: "Out of Stock",   value: "17",    sub: "needs attention",Icon: FiAlertTriangle, card: "border-box-border-warn bg-box-border-warn-bg", icon: "text-orange-400 bg-orange-50 dark:bg-orange-950/40" },
-]
-
-const PIE_DATA = [
-  { label: "In Stock", value: 342, color: "#38bdf8" },
-  { label: "Sold",     value: 158, color: "#f97316" },
-  { label: "Reserved", value: 80,  color: "#a78bfa" },
-]
-
-const BAR_DATA = [
-  { month: "Jan", income: 42000, outcome: 28000 },
-  { month: "Feb", income: 55000, outcome: 31000 },
-  { month: "Mar", income: 38000, outcome: 25000 },
-  { month: "Apr", income: 67000, outcome: 42000 },
-  { month: "May", income: 71000, outcome: 38000 },
-  { month: "Jun", income: 59000, outcome: 35000 },
-]
-
-const CUSTOMERS = [
-  { name: "Alice Johnson", orders: 12, initials: "AJ", color: "bg-sky-500"    },
-  { name: "Bob Chen",      orders: 8,  initials: "BC", color: "bg-violet-500" },
-  { name: "Sara Moon",     orders: 7,  initials: "SM", color: "bg-teal-500"   },
-  { name: "Dev Patel",     orders: 5,  initials: "DP", color: "bg-orange-400" },
-]
-
-const TOP_PRODUCTS = [
-  { name: "USB-C Hub Pro",      sold: 284, pct: 90 },
-  { name: "Mechanical Keyboard",sold: 231, pct: 73 },
-  { name: "27\" Monitor",       sold: 198, pct: 63 },
-  { name: "Webcam 4K",          sold: 175, pct: 56 },
-  { name: "Laptop Stand",       sold: 162, pct: 51 },
-  { name: "Mouse Pad XL",       sold: 148, pct: 47 },
-  { name: "Headset Pro",        sold: 134, pct: 43 },
-  { name: "SD Card 256GB",      sold: 119, pct: 38 },
-  { name: "Portable SSD",       sold: 103, pct: 33 },
-  { name: "Phone Stand",        sold: 87,  pct: 28 },
-]
 
 /* Card wrapper */
 function Card({ children, className = "" }) {
@@ -141,24 +93,75 @@ function Card({ children, className = "" }) {
   )
 }
 
+const AVATAR_COLORS = ["bg-sky-500", "bg-violet-500", "bg-teal-500", "bg-orange-400"]
+
 export default function Home() {
+  const { authFetch, user } = useAuth()
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  const isInternal = user?.role === "admin" || user?.role === "staff"
+
+  useEffect(() => {
+    fetchStats()
+  }, [])
+
+  async function fetchStats() {
+    setLoading(true)
+    try {
+      const res = await authFetch("/dashboard/stats")
+      if (res.ok) setStats(await res.json())
+    } catch (err) {
+      console.error("Fetch stats failed", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center text-sky-500 animate-pulse">
+      <FiActivity size={40} />
+    </div>
+  )
+
+  const counts = stats?.counts || {}
+  const topProducts = stats?.top_products || []
+  const topCustomers = stats?.top_customers || []
+
+  const STAT_CARDS = isInternal ? [
+    { label: "Total Products", value: counts.products?.toLocaleString(), sub: "Catalog entities", Icon: FiBox,          card: "border-box-border bg-box-border-bg", icon: "text-blue-400 bg-blue-50 dark:bg-blue-950/40" },
+    { label: "Total Orders",   value: counts.orders?.toLocaleString(),   sub: "Transactions",      Icon: FiShoppingCart,  card: "border-box-border bg-box-border-bg", icon: "text-sky-400  bg-sky-50  dark:bg-sky-950/40"  },
+    { label: "Cumulative Stock",value: counts.total_stock?.toLocaleString(),sub: "Units on hand",   Icon: FiLayers,       card: "border-box-border bg-box-border-bg", icon: "text-teal-400 bg-teal-50 dark:bg-teal-950/40" },
+    { label: "Critical Stock", value: counts.out_of_stock?.toLocaleString(),sub: "Needs attention",Icon: FiAlertTriangle, card: "border-box-border-warn bg-box-border-warn-bg", icon: "text-orange-400 bg-orange-50 dark:bg-orange-950/40" },
+  ] : [
+    { label: "Available Items", value: counts.products?.toLocaleString(), sub: "Our full catalog", Icon: FiPackage,       card: "border-box-border bg-box-border-bg", icon: "text-sky-400 bg-sky-50 dark:bg-sky-950/40" },
+    { label: "My Orders",      value: counts.orders?.toLocaleString(),   sub: "Purchase history",  Icon: FiShoppingBag,    card: "border-box-border bg-box-border-bg", icon: "text-violet-400 bg-violet-50 dark:bg-violet-950/40" },
+    { label: "New Categories",  value: counts.categories?.toLocaleString() || "Active", sub: "Explore trends",   Icon: FiTag,      card: "border-box-border bg-box-border-bg", icon: "text-teal-400 bg-teal-50 dark:bg-teal-950/40" },
+    { label: "Verified Member", value: "Level 1", sub: user?.name, Icon: FiHeart, card: "border-box-border bg-box-border-bg", icon: "text-rose-400 bg-rose-50 dark:bg-rose-950/40" },
+  ]
+
+  const PIE_DATA = [
+    { label: "In Stock", value: counts.total_stock || 0, color: "#38bdf8" },
+    { label: "Out of Stock", value: counts.out_of_stock || 0, color: "#f97316" },
+  ]
+
   return (
     <div className="h-screen p-5 flex flex-col gap-5 text-slate-700 dark:text-slate-200">
-
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-800 dark:text-white">Dashboard</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Welcome back — here's what's happening.</p>
+          <h1 className="text-xl font-bold text-slate-800 dark:text-white">
+            {isInternal ? "Executive Dashboard" : `Welcome back, ${user?.name.split(" ")[0]}!`}
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {isInternal ? "Real-time system operational metrics." : "Explore our catalog and track your latest orders below."}
+          </p>
         </div>
       </div>
 
-      {/* ── Main grid ── */}
       <div className="grid grid-cols-5 grid-rows-6 gap-4 flex-1 min-h-0">
-
         {/* Stats row */}
         <div className="col-span-5 row-span-1 grid grid-cols-4 gap-3">
-          {STATS.map(({ label, value, sub, Icon, card, icon }) => (
+          {STAT_CARDS.map(({ label, value, sub, Icon, card, icon }) => (
             <Card key={label} className={`flex items-center gap-4 p-4 border-2 ${card}`}>
               <span className={`p-2.5 rounded-xl ${icon}`}>
                 <Icon size={18} />
@@ -172,80 +175,119 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Top customers */}
-        <Card className="col-span-1 row-span-2 row-start-2 p-4 flex flex-col gap-3 overflow-hidden">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Top Customers</p>
-          <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
-            {CUSTOMERS.map(c => (
-              <div key={c.name} className="flex items-center gap-2.5">
-                <span className={`w-8 h-8 rounded-full ${c.color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
-                  {c.initials}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs font-medium truncate">{c.name}</p>
-                  <p className="text-[10px] text-slate-400">{c.orders} orders</p>
+        {isInternal ? (
+          <>
+            {/* Top customers */}
+            <Card className="col-span-1 row-span-2 row-start-2 p-4 flex flex-col gap-3 overflow-hidden">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-2"><FiUsers/> Top Consumers</p>
+              <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
+                {topCustomers.map((c, i) => (
+                  <div key={c.name} className="flex items-center gap-2.5">
+                    <span className={`w-8 h-8 rounded-full ${AVATAR_COLORS[i % 4]} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                      {c.name.substring(0, 2).toUpperCase()}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">{c.name}</p>
+                      <p className="text-[10px] text-slate-400">{c.orders} orders</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* Donut chart */}
+            <Card className="col-span-2 row-span-2 row-start-2 p-4 flex flex-col gap-2">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Inventory Health</p>
+              <div className="flex-1 flex items-center justify-around">
+                <DonutChart data={PIE_DATA} size={120} />
+                <div className="flex flex-col gap-2">
+                  {PIE_DATA.map(d => (
+                    <div key={d.label} className="flex items-center gap-2 text-xs">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
+                      <span className="text-slate-500 dark:text-slate-400">{d.label}</span>
+                      <span className="font-semibold ml-auto pl-3">{d.value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        </Card>
+            </Card>
 
-        {/* Donut chart */}
-        <Card className="col-span-2 row-span-2 row-start-2 p-4 flex flex-col gap-2">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Stock Breakdown</p>
-          <div className="flex-1 flex items-center justify-around">
-            <DonutChart data={PIE_DATA} size={120} />
-            <div className="flex flex-col gap-2">
-              {PIE_DATA.map(d => (
-                <div key={d.label} className="flex items-center gap-2 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
-                  <span className="text-slate-500 dark:text-slate-400">{d.label}</span>
-                  <span className="font-semibold ml-auto pl-3">{d.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Card>
-
-        {/* Top 10 Products */}
-        <Card className="col-span-2 row-span-5 col-start-4 row-start-2 p-4 flex flex-col gap-3 overflow-hidden">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Top 10 Products</p>
-          <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto pr-1">
-            {TOP_PRODUCTS.map((p, i) => (
-              <div key={p.name} className="flex flex-col gap-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600 w-4">#{i + 1}</span>
-                    <span className="font-medium truncate max-w-[140px]">{p.name}</span>
-                  </span>
-                  <span className="text-slate-400 shrink-0">{p.sold}</span>
-                </div>
-                {/* Mini progress bar */}
-                <div className="h-1 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-sky-400 transition-[width] duration-500"
-                    style={{ width: `${p.pct}%` }}
-                  />
-                </div>
+            {/* Top 10 Products */}
+            <Card className="col-span-2 row-span-5 col-start-4 row-start-2 p-4 flex flex-col gap-3 overflow-hidden">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Revenue Drivers (Top 10)</p>
+              <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto pr-1">
+                {topProducts.map((p, i) => (
+                  <div key={p.name} className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600 w-4">#{i + 1}</span>
+                        <span className="font-medium truncate max-w-[140px]">{p.name}</span>
+                      </span>
+                      <span className="text-slate-400 shrink-0">{p.sold} sold</span>
+                    </div>
+                    <div className="h-1 rounded-full bg-transparent dark:bg-transparent/5 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-sky-400 transition-[width] duration-500"
+                        style={{ width: `${p.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </Card>
+            </Card>
 
-        {/* Income vs Outcome - Time Series Chart */}
-        <Card className="col-span-3 row-span-3 row-start-4 p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Income vs Outcome (Time Series)</p>
-            <div className="flex items-center gap-3 text-[10px] text-slate-400">
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-sky-400 inline-block" /> Income</span>
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" /> Outcome</span>
-            </div>
-          </div>
-          <div className="flex-1 flex items-center min-h-0">
-            <TimeSeriesChart data={BAR_DATA} />
-          </div>
-        </Card>
+            {/* Time series placeholder */}
+            <Card className="col-span-3 row-span-3 row-start-4 p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Purchase vs Sale Trends</p>
+                <p className="text-[8px] text-slate-400 italic font-mono uppercase tracking-widest">Projection Data Only</p>
+              </div>
+              <div className="flex-1 flex items-center min-h-0 opacity-40 grayscale">
+                <TimeSeriesChart data={[
+                  { month: "Jan", income: 42, outcome: 28 }, { month: "Feb", income: 55, outcome: 31 },
+                  { month: "Mar", income: 38, outcome: 25 }, { month: "Apr", income: 67, outcome: 42 },
+                  { month: "May", income: 71, outcome: 38 }, { month: "Jun", income: 59, outcome: 35 },
+                ]} />
+              </div>
+            </Card>
+          </>
+        ) : (
+          /* Customer Welcome View */
+          <div className="col-span-5 row-span-5 flex flex-col gap-6 pt-2">
+             <Card className="flex-1 flex items-center justify-center p-10 bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-950/20 dark:to-blue-950/20 border-sky-100 dark:border-sky-900/30 overflow-hidden relative">
+                <div className="relative z-10 text-center space-y-4 max-w-lg">
+                   <div className="w-20 h-20 bg-transparent dark:bg-box-dark-bg rounded-3xl shadow-xl flex items-center justify-center mx-auto mb-6">
+                      <FiHeart className="text-rose-500 w-10 h-10 fill-rose-500 animate-pulse" />
+                   </div>
+                   <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Your Storefront Hub.</h2>
+                   <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                      Thank you for being part of our network. From this terminal, you can browse our live catalog, track your order fulfillment, and manage your delivery details.
+                   </p>
+                   <div className="pt-4 flex items-center justify-center gap-3">
+                      <a href="/products" className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-sky-200 dark:shadow-none transition-all">Explore Products</a>
+                      <a href="/orders" className="px-6 py-3 bg-transparent dark:bg-transparent/10 text-slate-700 dark:text-white rounded-2xl font-bold text-sm border border-black/5 dark:border-white/5 transition-all">My History</a>
+                   </div>
+                </div>
+                {/* Decorative background icon */}
+                <FiPackage className="absolute -bottom-10 -right-10 w-64 h-64 text-sky-500/5 rotate-12 pointer-events-none" />
+             </Card>
 
+             <div className="grid grid-cols-3 gap-6 h-40">
+                <Card className="p-4 flex flex-col justify-between border-b-4 border-sky-400">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Store Policy</p>
+                   <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Fast delivery within 24 hours of confirmation.</p>
+                </Card>
+                <Card className="p-4 flex flex-col justify-between border-b-4 border-teal-400">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Catalog Sync</p>
+                   <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Live prices and stock levels directly from our hub.</p>
+                </Card>
+                <Card className="p-4 flex flex-col justify-between border-b-4 border-violet-400">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Support Node</p>
+                   <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Reach out via our hotline for instant order tracking.</p>
+                </Card>
+             </div>
+          </div>
+        )}
       </div>
     </div>
   )

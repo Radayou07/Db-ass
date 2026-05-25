@@ -1,0 +1,156 @@
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from extensions import db
+from models import Orders, OrderDetail, Product, Inventory, Employee, PaymentCustomer
+from datetime import datetime
+
+order_bp = Blueprint("order", __name__)
+
+@order_bp.route("", methods=["GET"])
+@jwt_required()
+def get_orders():
+    claims = get_jwt()
+    user_id = int(get_jwt_identity()) 
+
+    if claims.get("role") == "customer":
+        orders = Orders.query.filter_by(customer_id=user_id).all()
+    else:
+        orders = Orders.query.all()
+
+    results = []
+    for o in orders:
+        order_dict = o.to_dict()
+        order_dict["customer_name"] = o.customer.name if o.customer else "Unknown"
+        
+        payment_record = PaymentCustomer.query.filter_by(order_id=o.id, status=1).first()
+        order_dict["payment_status"] = 1 if payment_record else 0
+        order_dict["payment_method"] = payment_record.method if payment_record else None
+        
+        order_dict["details"] = [d.to_dict() for d in o.details]
+        results.append(order_dict)
+    return jsonify(results), 200
+
+@order_bp.route("", methods=["POST"])
+@jwt_required()
+def create_order():
+    claims = get_jwt()
+    user_id = int(get_jwt_identity())
+    data = request.get_json(silent=True) or {}
+    role = claims.get("role")
+    
+    try:
+        # 1. Context determination
+        if role == "customer":
+            customer_id = user_id
+            system_emp = Employee.query.first()
+            if not system_emp:
+                return jsonify({"error": "No staff member to process order."}), 500
+            employee_id = system_emp.id
+            method = "Transfer" # Customers always pay via Transfer (QR)
+        else:
+            customer_id = data.get("customer_id")
+            employee_id = user_id
+            if not customer_id:
+                 return jsonify({"error": "Customer ID is required for staff-led orders."}), 400
+            customer_id = int(customer_id)
+            # Staff can specify method, default to Cash
+            method = data.get("payment_method", "Cash")
+            if method not in ['Cash', 'Credit card', 'Transfer']:
+                method = "Cash"
+
+        items = data.get("items", []) 
+        if not items:
+            return jsonify({"error": "No items provided."}), 400
+
+        new_order = Orders(customer_id=customer_id, employee_id=employee_id, date=datetime.utcnow().date())
+        db.session.add(new_order)
+        db.session.flush()
+
+        total_amount = 0
+        for item in items:
+            pid = int(item["product_id"])
+            qty = int(item["quantity"])
+            product = Product.query.get(pid)
+            if not product: continue
+            
+            total_amount += (float(product.price) * qty)
+            
+            # Stock deduction
+            try:
+                inventory_records = Inventory.query.filter_by(product_id=pid).filter(Inventory.inventory_quantity > 0).all()
+                rem = qty
+                for inv in inventory_records:
+                    if rem <= 0: break
+                    take = min(inv.inventory_quantity, rem)
+                    inv.inventory_quantity -= take
+                    rem -= take
+            except: pass
+
+            detail = OrderDetail(order_id=new_order.id, product_id=pid, quantity=qty, price=product.price)
+            db.session.add(detail)
+
+        # 4. Immediate Payment
+        if data.get("paid", False):
+            new_payment = PaymentCustomer(
+                order_id=new_order.id,
+                amount=total_amount,
+                method=method,
+                status=1,
+                employee_id=employee_id,
+                date=datetime.utcnow().date()
+            )
+            db.session.add(new_payment)
+
+        db.session.commit()
+        return jsonify({"message": "Order processed.", "id": new_order.id}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@order_bp.route("/<int:id>/pay", methods=["POST"])
+@jwt_required()
+def pay_order(id):
+    claims = get_jwt()
+    role = claims.get("role")
+    data = request.get_json(silent=True) or {}
+    
+    order = Orders.query.get(id)
+    if not order: return jsonify({"error": "Order not found"}), 404
+    
+    if PaymentCustomer.query.filter_by(order_id=id, status=1).first():
+        return jsonify({"error": "Already paid"}), 400
+    
+    total = sum(float(d.price) * d.quantity for d in order.details)
+    
+    # Role based method logic
+    if role == "customer":
+        method = "Transfer"
+    else:
+        method = data.get("payment_method", "Cash")
+        if method not in ['Cash', 'Credit card', 'Transfer']:
+            method = "Cash"
+    
+    new_payment = PaymentCustomer(
+        order_id=id,
+        amount=total,
+        method=method,
+        status=1,
+        employee_id=get_jwt_identity(), # Use person who is marking it as paid
+        date=datetime.utcnow().date()
+    )
+    db.session.add(new_payment)
+    db.session.commit()
+    
+    return jsonify({"message": "Paid", "order_id": id, "method": method}), 200
+
+@order_bp.route("/<int:id>", methods=["DELETE"])
+@jwt_required()
+def delete_order(id):
+    order = Orders.query.get(id)
+    if not order: return jsonify({"error": "Order not found"}), 404
+    OrderDetail.query.filter_by(order_id=id).delete()
+    PaymentCustomer.query.filter_by(order_id=id).delete()
+    db.session.delete(order)
+    db.session.commit()
+    return jsonify({"message": "Removed"}), 200
