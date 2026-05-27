@@ -1,5 +1,8 @@
 To run this program, first install all the required libraries for Python and Node.js, just download the latest version.
 
+>[!warning]
+>**Run db_assignmet first**
+
 **Backend**
 ```bash
 cd backend                        # Go to the backend directory
