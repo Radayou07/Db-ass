@@ -12,6 +12,7 @@ class Employee(db.Model):
     email         = db.Column(db.String(100), nullable=False, unique=True)
     password_hash = db.Column(db.String(255), nullable=False)
     role          = db.Column(db.Enum("admin", "staff"), nullable=False, default="staff")
+    description   = db.Column(db.Text, nullable=True)
 
     def set_password(self, password: str):
         self.password_hash = generate_password_hash(password)
@@ -26,6 +27,7 @@ class Employee(db.Model):
             "number": self.number,
             "email": self.email,
             "role":  self.role,
+            "description": self.description,
         }
 
 
@@ -158,6 +160,7 @@ class Customer(db.Model):
     email         = db.Column(db.String(100), nullable=True, unique=True)
     password_hash = db.Column(db.String(255), nullable=True)
     address       = db.Column(db.String(255), nullable=False)
+    description   = db.Column(db.Text, nullable=True)
 
     def set_password(self, password: str):
         self.password_hash = generate_password_hash(password)
@@ -173,6 +176,7 @@ class Customer(db.Model):
             "number": self.number,
             "email": self.email,
             "address": self.address,
+            "description": self.description,
             "role": "customer"
         }
 

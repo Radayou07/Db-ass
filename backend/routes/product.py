@@ -68,7 +68,7 @@ def get_products():
             "uom_name": uom_name,
             "uom_abbreviation": uom_abbr,
             "stock": int(total_stock) if total_stock is not None else 0,
-            "images": images
+            "images": [{**img, "url": img["url"].replace(":5000/", ":5001/")} for img in images]
         })
 
     return jsonify(product_list), 200
@@ -195,7 +195,7 @@ def get_single_product(id):
         "uom_abbreviation": product.uom.abbreviation if product.uom else None,
         "stock": int(stock_sum) if stock_sum is not None else 0,
         "warehouse_id": primary_inv.warehouse_id if primary_inv else None,
-        "images": images
+        "images": [{**img, "url": img["url"].replace(":5000/", ":5001/")} for img in images]
     }), 200
 
 

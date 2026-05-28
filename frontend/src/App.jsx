@@ -12,13 +12,14 @@ import Register from './pages/Register'
 // Protected pages
 import Home      from './pages/Home'
 import Products  from './pages/Products'
+import ProductDetail from './pages/ProductDetail'
 import Inventories from "./pages/Inventories"
 import Orders    from './pages/Orders'
 import Customers from './pages/Customers'
 import Suppliers from './pages/Suppliers'
 import Staff     from './pages/Staff'
 import Analysis  from './pages/Analysis'
-import About     from './pages/About'
+import Profile   from './pages/Profile'
 
 // ── Layout wrapper ───────────────────────────────────────────────────
 function AppLayout({ isDark, setIsDark }) {
@@ -56,6 +57,7 @@ function App() {
             >
               <Route index             element={<Home />} />
               <Route path="products"   element={<Products />} />
+              <Route path="products/:id" element={<ProductDetail />} />
               
               <Route 
                 path="inventories" 
@@ -104,7 +106,7 @@ function App() {
                 } 
               />
 
-              <Route path="about"      element={<About />} />
+              <Route path="profile"    element={<Profile />} />
               
               <Route path="*"          element={<Navigate to="/" replace />} />
             </Route>

@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from "react"
 
 const AuthContext = createContext(null)
 
-const API = "http://localhost:5000/api"
+const API = "http://localhost:5001/api"
 
 // Decode the JWT payload without a library
 function parseToken(token) {

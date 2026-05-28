@@ -48,7 +48,7 @@ def upload_files():
                 print(f"File saved to: {file_path}")
                 
                 # Create a URL that can be reached via the static server
-                url = f"http://localhost:5000/static/uploads/{filename}"
+                url = f"http://localhost:5001/static/uploads/{filename}"
                 urls.append(url)
             except Exception as e:
                 print(f"File save error: {str(e)}")

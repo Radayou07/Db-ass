@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "../context/AuthContext"
+import { useNavigate, useLocation } from "react-router-dom"
 import { 
   FiSearch, FiEdit2, FiTrash2, FiPlus, FiGrid, FiList, 
   FiPackage, FiTag, FiDollarSign, FiArchive, FiX, FiActivity, FiCalendar, FiImage, FiPlusCircle, FiMinusCircle, FiUploadCloud, FiHome, FiFolder, FiShoppingCart, FiCheck, FiCreditCard 
@@ -7,66 +8,69 @@ import {
 
 /* ─── Product Card Component ─── */
 function ProductCard({ product, onEdit, onDelete, onBuy, isInternal }) {
+  const navigate = useNavigate()
   const primaryImage = product.images?.find(img => img.is_primary) || product.images?.[0]
 
   return (
-    <div className="bg-box-bg dark:bg-box-dark-bg rounded-2xl border border-box-border dark:border-box-dark-border p-5 hover:shadow-lg transition-all duration-300 flex flex-col h-full group">
-      <div className="flex gap-5 flex-1">
-        <div className="w-24 h-24 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden shadow-inner border border-black/5 dark:border-white/5">
+    <div 
+      onClick={() => navigate(`/products/${product.id}`)}
+      className="bg-box-bg dark:bg-box-dark-bg rounded-xl border border-box-border dark:border-box-dark-border p-3 hover:shadow-md transition-all duration-300 flex flex-col h-full group cursor-pointer active:scale-95"
+    >
+      <div className="flex gap-3 flex-1">
+        <div className="w-16 h-16 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden border border-black/5 dark:border-white/5">
           {primaryImage ? (
             <img src={primaryImage.url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
           ) : (
-            <FiPackage className="w-10 h-10 text-slate-300 dark:text-slate-600" />
+            <FiPackage className="w-6 h-6 text-slate-300 dark:text-slate-600" />
           )}
         </div>
         
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="font-bold text-slate-800 dark:text-white truncate text-base">{product.name}</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">{product.description}</p>
+              <h3 className="font-bold text-slate-800 dark:text-white truncate text-sm">{product.name}</h3>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">{product.description || "No description"}</p>
             </div>
             
             {isInternal && (
-              <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => onEdit(product)} className="p-2 rounded-xl text-slate-400 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"><FiEdit2 size={14} /></button>
-                <button onClick={() => onDelete(product)} className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"><FiTrash2 size={14} /></button>
+              <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                <button onClick={() => onEdit(product)} className="p-1.5 rounded-lg text-slate-400 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"><FiEdit2 size={12} /></button>
+                <button onClick={() => onDelete(product)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"><FiTrash2 size={12} /></button>
               </div>
             )}
           </div>
           
-          <div className="flex flex-wrap gap-4 mt-4 text-xs">
-            <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg font-semibold uppercase tracking-wider">
-              <FiTag size={12} className="text-sky-500" />
+          <div className="flex items-center justify-between mt-3">
+            <span className="flex items-center gap-1 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+              <FiTag size={10} className="text-sky-500" />
               {product.category_name || "Misc"}
             </span>
-            <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-bold text-sm">
-              <FiDollarSign size={14} className="text-emerald-500" />
-              {Number(product.price).toLocaleString(undefined, {minimumFractionDigits: 2})}
+            <span className="text-xs font-black text-slate-800 dark:text-white">
+              ${Number(product.price).toFixed(2)}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+      <div className="mt-3 pt-2 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between" onClick={e => e.stopPropagation()}>
         {!isInternal ? (
           <button 
             onClick={() => onBuy(product)}
             disabled={product.stock <= 0}
-            className={`flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest transition-all
+            className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all
               ${product.stock > 0 
-                ? "bg-sky-500 hover:bg-sky-600 text-white shadow-md shadow-sky-200 dark:shadow-none" 
-                : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"}`}
+                ? "bg-sky-500 hover:bg-sky-600 text-white shadow-sm" 
+                : "bg-slate-50 dark:bg-slate-800 text-slate-400 cursor-not-allowed"}`}
           >
-            <FiShoppingCart size={14} />
-            {product.stock > 0 ? "Place Order" : "Unavailable"}
+            <FiShoppingCart size={12} />
+            {product.stock > 0 ? "Order" : "Out"}
           </button>
         ) : (
           <div className="flex items-center justify-between w-full">
-            <span className={`text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' : 'bg-rose-50 text-rose-600 dark:bg-rose-900/20'}`}>
-              {product.stock ?? 0} {product.uom_abbreviation} ON HAND
+            <span className={`text-[9px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded-md ${product.stock > 0 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' : 'bg-rose-50 text-rose-600 dark:bg-rose-900/20'}`}>
+              {product.stock ?? 0} {product.uom_abbreviation}
             </span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{product.company}</span>
+            <span className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">{product.company}</span>
           </div>
         )}
       </div>

@@ -95,18 +95,18 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
 
-            {/* Email */}
+            {/* Email/Number */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Email address
+                Email or Phone Number
               </label>
               <div className="relative">
                 <FiMail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                 <input
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="you@company.com"
+                  placeholder="you@company.com or 012345678"
                   required
                   className="w-full pl-10 pr-4 py-2.5 bg-transparent border border-gray-200 rounded-xl text-sm
                              text-gray-900 placeholder-gray-400

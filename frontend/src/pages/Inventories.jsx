@@ -6,7 +6,10 @@ import {
 } from "react-icons/fi"
 
 /* ─── Warehouse Card Component ─── */
-function WarehouseCard({ warehouse, onEdit, onDelete }) {
+function WarehouseCard({ warehouse, usage, onEdit, onDelete }) {
+  const percent = Math.min(100, Math.round((usage / warehouse.capacity) * 100))
+  const isFull = percent >= 100
+
   return (
     <div className="bg-box-bg dark:bg-box-dark-bg rounded-xl border border-black/[.04] dark:border-white/[.06] p-4 hover:shadow-md transition-all duration-250">
       <div className="flex items-start justify-between mb-3">
@@ -29,11 +32,14 @@ function WarehouseCard({ warehouse, onEdit, onDelete }) {
       
       <div className="pt-3 border-t border-black/[.02] dark:border-white/[.02]">
         <div className="flex justify-between text-xs mb-1">
-          <span className="text-slate-400">Capacity Utilization</span>
-          <span className="text-slate-600 dark:text-slate-300 font-medium">Max: {warehouse.capacity} units</span>
+          <span className="text-slate-400">Capacity Utilization ({percent}%)</span>
+          <span className="text-slate-600 dark:text-slate-300 font-medium">{usage} / {warehouse.capacity} units</span>
         </div>
-        <div className="w-full h-1.5 bg-transparent dark:bg-slate-800 rounded-full overflow-hidden">
-          <div className="h-full bg-sky-500 rounded-full" style={{ width: '15%' }}></div>
+        <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div 
+            className={`h-full rounded-full transition-all duration-500 ${isFull ? "bg-red-500" : "bg-sky-500"}`} 
+            style={{ width: `${percent}%` }}
+          ></div>
         </div>
       </div>
     </div>
@@ -108,8 +114,11 @@ export default function Inventories() {
       if (res.ok) {
         setIsStockModalOpen(false)
         fetchData()
+      } else {
+        const errorData = await res.json()
+        alert(errorData.error || "Stock update failed")
       }
-    } catch (err) { alert("Stock update failed") }
+    } catch (err) { alert("Network error. Please try again.") }
   }
 
   const openAddWarehouse = () => {
@@ -184,9 +193,21 @@ export default function Inventories() {
           </div>
         ) : activeTab === "warehouses" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-10">
-            {warehouses.map(w => (
-              <WarehouseCard key={w.id} warehouse={w} onEdit={openEditWarehouse} onDelete={() => handleDeleteWarehouse(w.id)} />
-            ))}
+            {warehouses.map(w => {
+              const usage = inventory
+                .filter(inv => inv.warehouse_id === w.id)
+                .reduce((sum, item) => sum + item.quantity, 0)
+              
+              return (
+                <WarehouseCard 
+                  key={w.id} 
+                  warehouse={w} 
+                  usage={usage}
+                  onEdit={openEditWarehouse} 
+                  onDelete={() => handleDeleteWarehouse(w.id)} 
+                />
+              )
+            })}
             {warehouses.length === 0 && (
               <div className="col-span-full py-20 text-center border-2 border-dashed border-black/[.05] dark:border-white/[.05] rounded-3xl">
                 <FiHome className="mx-auto mb-4 text-slate-300" size={40} />
@@ -195,32 +216,47 @@ export default function Inventories() {
             )}
           </div>
         ) : (
-          <div className="bg-box-bg dark:bg-box-dark-bg rounded-2xl border border-black/[.04] dark:border-white/[.06] overflow-hidden shadow-sm mb-10">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="bg-black/[.02] dark:bg-transparent/[.02] text-slate-400 font-semibold border-b border-black/[.04] dark:border-white/[.06]">
-                  <th className="px-6 py-4">Product Entity</th>
-                  <th className="px-6 py-4">Location</th>
-                  <th className="px-6 py-4">Quantity</th>
-                  <th className="px-6 py-4 text-right">Last Synchronized</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black/[.02] dark:divide-white/[.02]">
-                {inventory.map(inv => (
-                  <tr key={inv.id} className="text-slate-600 dark:text-slate-300 hover:bg-black/[.01] dark:hover:bg-transparent/[.01] transition-colors">
-                    <td className="px-6 py-4 font-medium text-slate-800 dark:text-white">{inv.product_name}</td>
-                    <td className="px-6 py-4 uppercase text-[10px] font-bold text-sky-500 tracking-wider">{inv.warehouse_name}</td>
-                    <td className="px-6 py-4 font-bold">{inv.quantity} {inv.uom_abbreviation}</td>
-                    <td className="px-6 py-4 text-right text-[10px] text-slate-400">{new Date(inv.last_update).toLocaleString()}</td>
-                  </tr>
-                ))}
-                {inventory.length === 0 && (
-                  <tr>
-                    <td colSpan="4" className="px-6 py-12 text-center text-slate-400 italic">No active stock tracking records isolated.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <div className="space-y-8 pb-10">
+            {warehouses.map(warehouse => {
+              const warehouseStock = inventory.filter(inv => inv.warehouse_id === warehouse.id)
+              if (warehouseStock.length === 0) return null
+
+              return (
+                <div key={warehouse.id} className="bg-box-bg dark:bg-box-dark-bg rounded-2xl border border-black/[.04] dark:border-white/[.06] overflow-hidden shadow-sm">
+                  <div className="px-6 py-4 bg-black/[.02] dark:bg-white/[.02] border-b border-black/[.04] dark:border-white/[.06] flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <FiHome className="text-sky-500" size={18} />
+                      <h3 className="font-bold text-slate-800 dark:text-white">{warehouse.name}</h3>
+                      <span className="text-[10px] text-slate-400 uppercase tracking-widest ml-2 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-full font-semibold">{warehouse.location}</span>
+                    </div>
+                    <span className="text-xs text-slate-400 font-medium">{warehouseStock.length} Products</span>
+                  </div>
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="text-slate-400 font-semibold border-b border-black/[.04] dark:border-white/[.06]">
+                        <th className="px-6 py-3">Product Entity</th>
+                        <th className="px-6 py-3">Quantity</th>
+                        <th className="px-6 py-3 text-right">Last Synchronized</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-black/[.02] dark:divide-white/[.02]">
+                      {warehouseStock.map(inv => (
+                        <tr key={inv.id} className="text-slate-600 dark:text-slate-300 hover:bg-black/[.01] dark:hover:bg-transparent/[.01] transition-colors">
+                          <td className="px-6 py-4 font-medium text-slate-800 dark:text-white">{inv.product_name}</td>
+                          <td className="px-6 py-4 font-bold text-sky-500">{inv.quantity} {inv.uom_abbreviation}</td>
+                          <td className="px-6 py-4 text-right text-[10px] text-slate-400">{new Date(inv.last_update).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })}
+            {inventory.length === 0 && (
+              <div className="bg-box-bg dark:bg-box-dark-bg rounded-2xl border border-black/[.04] dark:border-white/[.06] p-12 text-center text-slate-400 italic">
+                No active stock tracking records isolated.
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -274,7 +310,17 @@ export default function Inventories() {
                 <label className="block text-xs text-slate-400 font-medium mb-1">Storage Warehouse</label>
                 <select required value={stockForm.warehouse_id} onChange={e => setStockForm({...stockForm, warehouse_id: e.target.value})} className="w-full px-4 py-2 rounded-xl bg-main-bg dark:bg-main-dark-bg border border-black/[.05] focus:outline-none focus:border-sky-500 text-slate-800 dark:text-white">
                   <option value="">Select Warehouse</option>
-                  {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  {warehouses.map(w => {
+                    const usage = inventory
+                      .filter(inv => inv.warehouse_id === w.id)
+                      .reduce((sum, item) => sum + item.quantity, 0)
+                    const isFull = usage >= w.capacity
+                    return (
+                      <option key={w.id} value={w.id}>
+                        {w.name} ({usage}/{w.capacity} units) {isFull ? "— FULL" : ""}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
               <div>

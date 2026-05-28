@@ -18,9 +18,30 @@ export default function Staff() {
   }, [])
 
   async function fetchStaff() {
-    // We'll need an endpoint to list staff. For now, let's assume we can get them.
-    // If not, we'll just show the 'Add' functionality.
-    setLoading(false)
+    setLoading(true)
+    try {
+      const res = await authFetch("/auth/staff")
+      if (res.ok) {
+        const data = await res.json()
+        setStaff(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch staff", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteStaff = async (id) => {
+    if (!window.confirm("Remove this staff member from the system?")) return
+    try {
+      const res = await authFetch(`/auth/staff/${id}`, { method: "DELETE" })
+      if (res.ok) fetchStaff()
+      else {
+        const data = await res.json()
+        alert(data.error || "Delete failed")
+      }
+    } catch (err) { alert("Network error") }
   }
 
   const handleAddStaff = async (e) => {
@@ -65,10 +86,60 @@ export default function Staff() {
         </button>
       </div>
 
-      <div className="flex-1 bg-box-bg dark:bg-box-dark-bg rounded-2xl border border-black/[.04] dark:border-white/[.06] overflow-hidden flex flex-col items-center justify-center text-center p-10">
-        <FiUsers className="w-16 h-16 text-slate-200 dark:text-slate-800 mb-4" />
-        <h3 className="text-lg font-bold text-slate-400">Team Catalog Node</h3>
-        <p className="text-sm text-slate-400 max-w-xs mt-2">Manage internal users, their credentials, and permission elevations from this terminal.</p>
+      <div className="flex-1 bg-box-bg dark:bg-box-dark-bg rounded-2xl border border-black/[.04] dark:border-white/[.06] overflow-hidden flex flex-col">
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center text-sky-500 animate-pulse">
+            <FiActivity size={40} />
+          </div>
+        ) : staff.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-10">
+            <FiUsers className="w-16 h-16 text-slate-200 dark:text-slate-800 mb-4" />
+            <h3 className="text-lg font-bold text-slate-400">Team Catalog Node</h3>
+            <p className="text-sm text-slate-400 max-w-xs mt-2">No internal users found in the system catalog.</p>
+          </div>
+        ) : (
+          <div className="overflow-y-auto h-full">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-black/[.02] dark:bg-white/[.02] backdrop-blur-md">
+                <tr className="text-slate-400 font-bold uppercase text-[10px] tracking-widest border-b border-black/[.04] dark:border-white/[.06]">
+                  <th className="px-6 py-4">Identity</th>
+                  <th className="px-6 py-4">Role</th>
+                  <th className="px-6 py-4">Contact</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/[.02] dark:divide-white/[.02]">
+                {staff.map(s => (
+                  <tr key={s.id} className="hover:bg-black/[.01] dark:hover:bg-white/[.01] transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-slate-800 dark:text-white">{s.name}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">ID: {s.id} / #{s.number}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        s.role === 'admin' ? 'bg-amber-500/10 text-amber-500' : 'bg-sky-500/10 text-sky-500'
+                      }`}>
+                        {s.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-slate-500"><FiMail className="w-3 h-3"/> {s.email}</div>
+                      <div className="flex items-center gap-2 text-slate-500"><FiPhone className="w-3 h-3"/> {s.number}</div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button 
+                        onClick={() => handleDeleteStaff(s.id)}
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-all"
+                      >
+                        <FiTrash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Modal */}

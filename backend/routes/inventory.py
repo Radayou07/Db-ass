@@ -107,8 +107,21 @@ def update_stock_level():
     if not product_id or not warehouse_id or quantity is None:
         return jsonify({"error": "Product ID, Warehouse ID, and quantity are required."}), 400
 
-    # Find existing record for this specific product/warehouse pair
+    warehouse = Warehouse.query.get(warehouse_id)
+    if not warehouse:
+        return jsonify({"error": "Warehouse not found"}), 404
+
+    # Calculate capacity usage
+    current_usage = db.session.query(func.sum(Inventory.inventory_quantity)).filter_by(warehouse_id=warehouse_id).scalar() or 0
     inv_record = Inventory.query.filter_by(product_id=product_id, warehouse_id=warehouse_id).first()
+    
+    old_qty = inv_record.inventory_quantity if inv_record else 0
+    new_usage = current_usage - old_qty + int(quantity)
+
+    if new_usage > warehouse.capacity:
+        return jsonify({
+            "error": f"Warehouse capacity exceeded. (Requested total: {new_usage}, Max: {warehouse.capacity})"
+        }), 400
 
     if inv_record:
         inv_record.inventory_quantity = int(quantity)

@@ -4,9 +4,8 @@ import { IoMdHome, IoMdPeople } from "react-icons/io"
 import { MdShoppingCart, MdAnalytics, MdInventory2 } from "react-icons/md"
 import { GiShoppingBag } from "react-icons/gi"
 import { FaHandsHelping } from "react-icons/fa"
-import { IoHelp } from "react-icons/io5"
 import { RiMenuFoldLine, RiMenuUnfoldLine } from "react-icons/ri"
-import { FiLogOut, FiShield } from "react-icons/fi"
+import { FiLogOut, FiShield, FiUser } from "react-icons/fi"
 import { BsBoxSeam } from "react-icons/bs"
 import DarkMode from "./DarkMode"
 import { useAuth } from "../context/AuthContext"
@@ -19,14 +18,14 @@ const ADMIN_NAV = [
   { to: "/customers",  Icon: IoMdPeople,     label: "Customers" },
   { to: "/suppliers",  Icon: FaHandsHelping, label: "Suppliers" },
   { to: "/analysis",  Icon: MdAnalytics,    label: "Analysis" },
-  { to: "/about",     Icon: IoHelp,         label: "About" },
+  { to: "/profile",   Icon: FiUser,         label: "Profile" },
 ]
 
 const CUSTOMER_NAV = [
   { to: "/",          Icon: IoMdHome,       label: "Home" },
   { to: "/products",   Icon: MdShoppingCart, label: "Storefront" },
   { to: "/orders",     Icon: GiShoppingBag,  label: "My Orders" },
-  { to: "/about",     Icon: IoHelp,         label: "About" },
+  { to: "/profile",   Icon: FiUser,         label: "Profile" },
 ]
 
 // Get initials from a name e.g. "John Doe" → "JD"
