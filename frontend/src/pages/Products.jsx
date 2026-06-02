@@ -9,7 +9,18 @@ import {
 /* ─── Product Card Component ─── */
 function ProductCard({ product, onEdit, onDelete, onBuy, isInternal }) {
   const navigate = useNavigate()
-  const primaryImage = product.images?.find(img => img.is_primary) || product.images?.[0]
+  const [activeImage, setActiveImage] = useState(0)
+  const images = product.images?.length > 0 ? product.images : [{ url: null }]
+
+  const nextImage = (e) => {
+    e.stopPropagation()
+    setActiveImage((prev) => (prev + 1) % images.length)
+  }
+
+  const prevImage = (e) => {
+    e.stopPropagation()
+    setActiveImage((prev) => (prev - 1 + images.length) % images.length)
+  }
 
   return (
     <div 
@@ -17,11 +28,38 @@ function ProductCard({ product, onEdit, onDelete, onBuy, isInternal }) {
       className="bg-box-bg dark:bg-box-dark-bg rounded-xl border border-box-border dark:border-box-dark-border p-3 hover:shadow-md transition-all duration-300 flex flex-col h-full group cursor-pointer active:scale-95"
     >
       <div className="flex gap-3 flex-1">
-        <div className="w-16 h-16 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden border border-black/5 dark:border-white/5">
-          {primaryImage ? (
-            <img src={primaryImage.url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+        <div className="w-20 h-20 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden border border-black/5 dark:border-white/5 relative group/img">
+          {images[activeImage]?.url ? (
+            <img src={images[activeImage].url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
           ) : (
             <FiPackage className="w-6 h-6 text-slate-300 dark:text-slate-600" />
+          )}
+
+          {/* Mini Switcher Indicators */}
+          {images.length > 1 && (
+            <>
+              <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1.5 px-2 py-1 bg-black/40 backdrop-blur-md rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity z-10">
+                {images.map((_, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`h-1.5 rounded-full transition-all ${activeImage === idx ? 'w-3 bg-sky-400' : 'w-1.5 bg-white/40'}`}
+                  />
+                ))}
+              </div>
+              
+              <button 
+                onClick={prevImage}
+                className="absolute left-1 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center text-slate-900 dark:text-white opacity-0 group-hover/img:opacity-100 transition-all hover:bg-white shadow-md z-20 font-black text-xs"
+              >
+                &lt;
+              </button>
+              <button 
+                onClick={nextImage}
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center text-slate-900 dark:text-white opacity-0 group-hover/img:opacity-100 transition-all hover:bg-white shadow-md z-20 font-black text-xs"
+              >
+                &gt;
+              </button>
+            </>
           )}
         </div>
         
@@ -29,19 +67,19 @@ function ProductCard({ product, onEdit, onDelete, onBuy, isInternal }) {
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <h3 className="font-bold text-slate-800 dark:text-white truncate text-sm">{product.name}</h3>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">{product.description || "No description"}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-300 mt-0.5 truncate">{product.description || "No description"}</p>
             </div>
             
             {isInternal && (
               <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                <button onClick={() => onEdit(product)} className="p-1.5 rounded-lg text-slate-400 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"><FiEdit2 size={12} /></button>
-                <button onClick={() => onDelete(product)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"><FiTrash2 size={12} /></button>
+                <button onClick={() => onEdit(product)} className="p-1.5 rounded-lg text-slate-400 dark:text-slate-300 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"><FiEdit2 size={12} /></button>
+                <button onClick={() => onDelete(product)} className="p-1.5 rounded-lg text-slate-400 dark:text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"><FiTrash2 size={12} /></button>
               </div>
             )}
           </div>
           
           <div className="flex items-center justify-between mt-3">
-            <span className="flex items-center gap-1 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+            <span className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-300 font-bold uppercase tracking-wider">
               <FiTag size={10} className="text-sky-500" />
               {product.category_name || "Misc"}
             </span>
@@ -224,6 +262,7 @@ export default function Products() {
   const [categories, setCategories] = useState([])
   const [units, setUnits] = useState([])
   const [warehouses, setWarehouses] = useState([])
+  const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
@@ -241,7 +280,7 @@ export default function Products() {
   
   // Input Form States
   const [formData, setFormData] = useState({
-    name: "", description: "", price: "", company: "", expire: "", category_id: "", uom_id: "", initial_quantity: 0, warehouse_id: "", images: [] 
+    name: "", description: "", price: "", company: "", expire: "", category_id: "", uom_id: "", initial_quantity: 0, warehouse_id: "", supplier_id: "", images: [] 
   })
 
   const [newCategoryName, setNewCategoryName] = useState("")
@@ -257,16 +296,18 @@ export default function Products() {
   const fetchInitialData = async () => {
     setLoading(true)
     try {
-      const [productsRes, categoriesRes, unitsRes, warehousesRes] = await Promise.all([
+      const [productsRes, categoriesRes, unitsRes, warehousesRes, suppliersRes] = await Promise.all([
         authFetch("/products"),
         authFetch("/categories"),
         authFetch("/units"),
-        authFetch("/products/warehouses")
+        authFetch("/inventory/warehouses"),
+        authFetch("/suppliers")
       ])
       if (productsRes.ok) setProducts(await productsRes.json())
       if (categoriesRes.ok) setCategories(await categoriesRes.json())
       if (unitsRes.ok) setUnits(await unitsRes.json())
       if (warehousesRes.ok) setWarehouses(await warehousesRes.json())
+      if (suppliersRes.ok) setSuppliers(await suppliersRes.json())
     } catch (err) {
       setError("System data synchronization failed.")
     } finally {
@@ -289,7 +330,9 @@ export default function Products() {
       name: "", description: "", price: "", company: "", expire: "", 
       category_id: categories[0]?.id || "", 
       uom_id: units[0]?.id || "",
-      initial_quantity: 0, warehouse_id: warehouses[0]?.id || "", images: [] 
+      initial_quantity: 0, warehouse_id: warehouses[0]?.id || "", 
+      supplier_id: suppliers[0]?.id || "",
+      images: [] 
     })
     setIsFormModalOpen(true)
   }
@@ -301,6 +344,8 @@ export default function Products() {
       expire: product.expire ? product.expire.split('T')[0] : "", category_id: product.category_id || "",
       uom_id: product.uom_id || "",
       initial_quantity: product.stock || 0, warehouse_id: product.warehouse_id || warehouses[0]?.id || "",
+      supplier_id: product.supplier_id || "",
+      last_cost: product.last_cost || 0,
       images: product.images?.length > 0 ? product.images.map(img => img.url) : []
     })
     setIsFormModalOpen(true)
@@ -390,13 +435,13 @@ export default function Products() {
             <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">
                {isInternal ? "Inventory Catalog" : "Product Storefront"}
             </h1>
-            <p className="text-xs text-slate-400 mt-1 font-semibold uppercase tracking-widest">
+            <p className="text-xs text-slate-400 dark:text-slate-300 mt-1 font-semibold uppercase tracking-widest">
                {isInternal ? "Warehouse Management Interface" : "Live Product Availability"}
             </p>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-tight">{user?.name || "Initializing..."}</p>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-100 leading-tight">{user?.name || "Initializing..."}</p>
               <p className="text-[10px] uppercase tracking-[0.2em] font-black text-sky-500">{user?.role}</p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white font-black shadow-xl shadow-sky-200 dark:shadow-none uppercase text-lg border-2 border-white/20">
@@ -409,7 +454,7 @@ export default function Products() {
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
           <div className="relative flex-1 max-w-xl group">
             <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-sky-500 transition-colors" size={20} />
-            <input type="text" placeholder="Search by name, description, or brand..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-5 py-4 rounded-2xl bg-box-bg dark:bg-box-dark-bg border border-box-border dark:border-box-dark-border text-slate-700 dark:text-slate-200 placeholder:text-slate-400 font-medium focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all shadow-sm" />
+            <input type="text" placeholder="Search by name, description, or brand..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-5 py-4 rounded-2xl bg-box-bg dark:bg-box-dark-bg border border-box-border dark:border-box-dark-border text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-medium focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all shadow-sm" />
           </div>
           
           <div className="flex gap-3 items-center overflow-x-auto pb-1 lg:pb-0 scrollbar-hide">
@@ -435,9 +480,9 @@ export default function Products() {
         {/* Dynamic List */}
         <div className="flex-1 overflow-y-auto min-h-0 pr-1 -mr-1 custom-scrollbar">
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-full text-center"><FiActivity className="w-12 h-12 text-sky-500 animate-spin mb-4" /><p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Catalog Synchronizing...</p></div>
+            <div className="flex flex-col items-center justify-center h-full text-center"><FiActivity className="w-12 h-12 text-sky-500 animate-spin mb-4" /><p className="text-sm font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Catalog Synchronizing...</p></div>
           ) : filteredProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center bg-box-bg dark:bg-box-dark-bg rounded-[3rem] border-2 border-dashed border-box-border dark:border-box-dark-border py-20 px-10"><FiPackage className="w-24 h-24 text-slate-200 dark:text-slate-800 mb-6" /><p className="text-xl font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">Zero matches detected</p><p className="text-sm text-slate-400 mt-2 font-medium">Try broadening your search criteria or register a new entity.</p></div>
+            <div className="flex flex-col items-center justify-center h-full text-center bg-box-bg dark:bg-box-dark-bg rounded-[3rem] border-2 border-dashed border-box-border dark:border-box-dark-border py-20 px-10"><FiPackage className="w-24 h-24 text-slate-200 dark:text-slate-600 mb-6" /><p className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Zero matches detected</p><p className="text-sm text-slate-400 dark:text-slate-300 mt-2 font-medium">Try broadening your search criteria or register a new entity.</p></div>
           ) : (
             <div className={viewMode === "list" ? "space-y-4 pb-10" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 pb-10"}>
               {filteredProducts.map(product => (
@@ -465,6 +510,51 @@ export default function Products() {
                     <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Price Unit *</label><div className="relative"><FiDollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={16}/><input required type="number" step="0.01" min="0" placeholder="0.00" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full pl-10 pr-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" /></div></div>
                     <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Manufacturer</label><input type="text" placeholder="Brand Name" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" /></div>
                   </div>
+
+                  {/* Markup Helper */}
+                  <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30">
+                    <div className="flex items-center justify-between mb-3 px-1">
+                      <label className="block text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em]">Price Calculation Helper</label>
+                      {formData.last_cost > 0 && (
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest bg-white dark:bg-slate-900 px-2 py-0.5 rounded-full border border-slate-100 dark:border-slate-800">
+                           Last Acquisition: ${formData.last_cost}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                         <input 
+                           type="number" 
+                           placeholder="Supplier Cost..." 
+                           value={formData.cost_input || ""}
+                           onChange={(e) => {
+                             const cost = parseFloat(e.target.value) || 0
+                             setFormData(prev => ({ ...prev, cost_input: e.target.value, price: cost > 0 ? (cost * 1.3).toFixed(2) : prev.price }))
+                           }}
+                           className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs font-bold outline-none focus:ring-2 ring-emerald-500/20 shadow-sm"
+                         />
+                      </div>
+                      <div className="flex gap-1">
+                        {[1.2, 1.3, 1.5].map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => {
+                              const cost = parseFloat(formData.cost_input || formData.last_cost) || 0
+                              if (cost > 0) setFormData(prev => ({ ...prev, price: (cost * m).toFixed(2) }))
+                            }}
+                            className="px-3 py-2 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 rounded-xl text-[9px] font-black text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all shadow-sm uppercase tracking-tighter"
+                          >
+                            +{Math.round((m-1)*100)}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {formData.last_cost > 0 && !formData.cost_input && (
+                      <p className="text-[8px] text-emerald-500 font-bold mt-2 px-1 italic">* Using last cost data. Adjust manually if needed.</p>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Node Category *</label>
@@ -485,30 +575,51 @@ export default function Products() {
                       </select>
                     </div>
                   </div>
-                </div>
-                <div className="space-y-6">
-                  <div className="p-5 rounded-3xl bg-sky-50/50 dark:bg-sky-950/20 border-2 border-sky-100/50 dark:border-sky-900/30">
-                    <label className="block text-xs font-black text-sky-600 dark:text-sky-400 mb-4 flex items-center gap-2 uppercase tracking-widest"><FiArchive size={16}/> Seed Stock Logic</label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div><label className="block text-[10px] text-slate-400 font-black uppercase mb-2 px-1">Quantity</label><input type="number" min="0" value={formData.initial_quantity} onChange={e => setFormData({...formData, initial_quantity: e.target.value})} className="w-full px-4 py-3 bg-white dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-400 outline-none shadow-sm font-black text-base text-center" /></div>
-                      <div><label className="block text-[10px] text-slate-400 font-black uppercase mb-2 px-1">Warehouse</label><select value={formData.warehouse_id} onChange={e => setFormData({...formData, warehouse_id: e.target.value})} className="w-full px-4 py-3 bg-white dark:bg-slate-900 rounded-xl border border-transparent outline-none focus:border-sky-400 shadow-sm font-bold text-xs">{warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
-                    </div>
-                  </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 px-1"><FiImage className="text-sky-400" /> Visual Assets</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Primary Source (Supplier) *</label>
+                    <select required value={formData.supplier_id} onChange={e => setFormData({...formData, supplier_id: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent outline-none focus:border-sky-500 shadow-inner font-bold">
+                      <option value="" disabled>Select Strategic Partner</option>
+                      {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Right Column: Visual Assets */}
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 px-1">
+                      <FiUploadCloud className="text-sky-400" /> Visual Assets
+                    </label>
                     <div className="space-y-4">
-                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl cursor-pointer hover:bg-sky-50 dark:hover:bg-sky-950/20 transition-all relative overflow-hidden group shadow-inner">
+                      <label className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-3xl cursor-pointer transition-all relative overflow-hidden group shadow-inner
+                        ${isUploading ? 'border-sky-400 bg-sky-50 dark:bg-sky-950/20' : 'border-slate-200 dark:border-slate-800 hover:border-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/20'}`}>
                          {isUploading ? (
-                           <div className="text-center space-y-2"><FiActivity className="animate-spin text-sky-500 mx-auto" size={32} /><p className="text-[10px] font-black uppercase text-sky-500 tracking-widest">Streaming...</p></div>
+                           <div className="text-center space-y-2">
+                             <FiActivity className="animate-spin text-sky-500 mx-auto" size={32} />
+                             <p className="text-[10px] font-black uppercase text-sky-500 tracking-widest">Uploading...</p>
+                           </div>
                          ) : (
-                           <div className="text-center space-y-1"><FiUploadCloud className="text-slate-300 dark:text-slate-700 group-hover:text-sky-500 transition-colors mx-auto" size={40} /><p className="text-[10px] font-black uppercase text-slate-400 group-hover:text-slate-600 transition-colors tracking-widest">Upload Frame</p></div>
+                           <div className="text-center space-y-1">
+                             <FiUploadCloud className="text-slate-300 dark:text-slate-600 group-hover:text-sky-500 transition-colors mx-auto" size={40} />
+                             <p className="text-[10px] font-black uppercase text-slate-400 group-hover:text-slate-600 transition-colors tracking-widest">Drop Image Frame</p>
+                           </div>
                          )}
                          <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
                       </label>
-                      {formData.images.length > 0 && (
-                        <div className="grid grid-cols-4 gap-3 max-h-32 overflow-y-auto p-1 custom-scrollbar">
+
+                      {formData.images?.length > 0 && (
+                        <div className="grid grid-cols-3 gap-3 max-h-48 overflow-y-auto p-1 custom-scrollbar">
                           {formData.images.map((url, index) => (
-                            <div key={index} className="group relative aspect-square rounded-2xl overflow-hidden border border-black/5 dark:border-white/5 shadow-md"><img src={url} className="w-full h-full object-cover transition-transform group-hover:scale-110" /><button type="button" onClick={() => removeImage(index)} className="absolute top-1 right-1 p-1.5 bg-rose-500 text-white rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100"><FiX size={12} /></button></div>
+                            <div key={index} className="group relative aspect-square rounded-2xl overflow-hidden border border-black/5 dark:border-white/5 shadow-md">
+                              <img src={url} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt="" />
+                              <button 
+                                type="button" 
+                                onClick={() => removeImage(index)} 
+                                className="absolute top-1 right-1 w-6 h-6 bg-rose-500 text-white rounded-lg shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100"
+                              >
+                                <FiX size={12} />
+                              </button>
+                            </div>
                           ))}
                         </div>
                       )}

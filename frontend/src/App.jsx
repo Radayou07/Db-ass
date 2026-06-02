@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom' 
 import { AuthProvider } from './context/AuthContext'
@@ -34,7 +34,13 @@ function AppLayout({ isDark, setIsDark }) {
 }
 
 function App() {
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDark] = useState(() => {
+    return localStorage.getItem('theme') === 'dark'
+  })
+
+  useEffect(() => {
+    localStorage.setItem('theme', isDark ? 'dark' : 'light')
+  }, [isDark])
 
   return (
     <div className={isDark ? 'dark' : ''}>

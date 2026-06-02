@@ -1,5 +1,7 @@
 
 
+import { MdDarkMode, MdLightMode } from "react-icons/md";
+
 export default function DarkMode({ isDark, setIsDark }) {
   return (
     <button
@@ -15,11 +17,11 @@ export default function DarkMode({ isDark, setIsDark }) {
       {/* Sliding thumb */}
       <span className={`
         absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md
-        flex items-center justify-center text-[11px]
+        flex items-center justify-center text-[12px]
         transition-[left] duration-300 ease-in-out
         ${isDark ? "left-[22px]" : "left-0.5"}
       `}>
-        {isDark ? "🌙" : "☀️"}
+        {isDark ? <MdDarkMode className="text-slate-800" /> : <MdLightMode className="text-amber-500" />}
       </span>
     </button>
   )

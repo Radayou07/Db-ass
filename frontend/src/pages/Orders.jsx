@@ -287,11 +287,11 @@ export default function Orders() {
   }
 
   return (
-    <div className="h-screen p-5 flex flex-col gap-5 text-slate-700 dark:text-slate-200">
+    <div className="h-screen p-5 flex flex-col gap-5 text-slate-700 dark:text-slate-100">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-800 dark:text-white">{isInternal ? "Orders Matrix" : "My Order History"}</h1>
-          <p className="text-xs text-slate-400 mt-0.5">{isInternal ? "Manage customer transactions" : "View your past purchases"}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-300 mt-0.5">{isInternal ? "Manage customer transactions" : "View your past purchases"}</p>
         </div>
       </div>
 
@@ -329,14 +329,14 @@ export default function Orders() {
                   <th className="px-4 py-3 pr-5 text-right text-[11px] font-bold text-slate-400 uppercase">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-black/[.04]">
+              <tbody className="divide-y divide-black/[.04] dark:divide-white/[.04]">
                 {filtered.map(o => (
-                  <tr key={o.id} className="hover:bg-black/[.01] transition-colors group">
-                    <td className="px-4 py-3 pl-5 font-mono text-sm">#{String(o.id).padStart(4,"0")}</td>
-                    {isInternal && <td className="px-4 py-3 text-sm font-bold">{o.customer_name}</td>}
-                    <td className="px-4 py-3 text-sm text-slate-500">{o.date}</td>
-                    <td className="px-4 py-3"><span className="w-6 h-6 rounded-full bg-transparent flex items-center justify-center text-[10px] font-black">{o.details?.length}</span></td>
-                    <td className="px-4 py-3 text-sm font-black">${orderTotal(o).toFixed(2)}</td>
+                  <tr key={o.id} className="hover:bg-black/[.01] dark:hover:bg-white/[.02] transition-colors group">
+                    <td className="px-4 py-3 pl-5 font-mono text-sm dark:text-slate-200">#{String(o.id).padStart(4,"0")}</td>
+                    {isInternal && <td className="px-4 py-3 text-sm font-bold dark:text-slate-100">{o.customer_name}</td>}
+                    <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-300">{o.date}</td>
+                    <td className="px-4 py-3"><span className="w-6 h-6 rounded-full bg-transparent flex items-center justify-center text-[10px] font-black dark:text-slate-200">{o.details?.length}</span></td>
+                    <td className="px-4 py-3 text-sm font-black dark:text-slate-100">${orderTotal(o).toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${o.payment_status ? "bg-emerald-100 text-emerald-600" : "bg-orange-100 text-orange-600"}`}>
                         {o.payment_status ? "Paid" : "Unpaid"}

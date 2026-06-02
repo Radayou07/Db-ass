@@ -151,7 +151,7 @@ export default function Inventories() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Inventory Control</h1>
-          <p className="text-sm text-slate-400">Track and manage stock across multiple storage nodes.</p>
+          <p className="text-sm text-slate-400 dark:text-slate-300">Track and manage stock across multiple storage nodes.</p>
         </div>
         <div className="flex gap-2">
           <button 
@@ -173,13 +173,13 @@ export default function Inventories() {
       <div className="flex gap-6 border-b border-black/[.05] dark:border-white/[.05] mb-6">
         <button 
           onClick={() => setActiveTab("stock")}
-          className={`pb-3 text-sm font-bold transition-all px-1 flex items-center gap-2 ${activeTab === "stock" ? "border-b-2 border-sky-500 text-sky-500" : "text-slate-400 hover:text-slate-600"}`}
+          className={`pb-3 text-sm font-bold transition-all px-1 flex items-center gap-2 ${activeTab === "stock" ? "border-b-2 border-sky-500 text-sky-500" : "text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-white"}`}
         >
           <FiBarChart2 /> Stock Tracking
         </button>
         <button 
           onClick={() => setActiveTab("warehouses")}
-          className={`pb-3 text-sm font-bold transition-all px-1 flex items-center gap-2 ${activeTab === "warehouses" ? "border-b-2 border-sky-500 text-sky-500" : "text-slate-400 hover:text-slate-600"}`}
+          className={`pb-3 text-sm font-bold transition-all px-1 flex items-center gap-2 ${activeTab === "warehouses" ? "border-b-2 border-sky-500 text-sky-500" : "text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-white"}`}
         >
           <FiHome /> Storage Hubs
         </button>

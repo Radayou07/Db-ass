@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAuth } from "../context/AuthContext"
-import { FiUser, FiMail, FiPhone, FiEdit3, FiCheck, FiX, FiInfo } from "react-icons/fi"
+import { FiUser, FiMail, FiPhone, FiEdit3, FiCheck, FiX, FiInfo, FiCamera, FiLoader } from "react-icons/fi"
 
 export default function Profile() {
-  const { user, authFetch, login } = useAuth()
+  const { user, authFetch, updateUser } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
@@ -11,6 +11,8 @@ export default function Profile() {
     description: ""
   })
   const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     if (user) {
@@ -32,13 +34,9 @@ export default function Profile() {
       })
       if (res.ok) {
         const data = await res.json()
-        // Update local context user data
-        // Assuming your AuthContext login function or similar can be used to refresh
-        // For simplicity here, we'll just show success. 
-        // Realistically, the AuthContext should handle user state updates.
+        updateUser(data.user)
         alert("Profile updated!")
         setIsEditing(false)
-        window.location.reload() // Quick way to refresh AuthContext state
       } else {
         alert("Failed to update profile")
       }
@@ -46,6 +44,38 @@ export default function Profile() {
       alert("Network error")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append("image", file)
+
+    setUploading(true)
+    try {
+      const res = await authFetch("/auth/profile/image", {
+        method: "POST",
+        body: formData
+      })
+      if (res.ok) {
+        const data = await res.json()
+        updateUser(data.user)
+        alert("Profile image updated!")
+      } else {
+        const err = await res.json()
+        alert(err.error || "Failed to upload image")
+      }
+    } catch (err) {
+      alert("Upload error")
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -63,9 +93,39 @@ export default function Profile() {
           {/* Sidebar / Info Card */}
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-box-bg dark:bg-box-dark-bg rounded-2xl border border-black/[.04] dark:border-white/[.06] p-6 text-center shadow-sm">
-              <div className="w-24 h-24 bg-sky-500 rounded-full mx-auto flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg shadow-sky-500/20">
-                {user?.name?.[0]?.toUpperCase() || "U"}
+              <div 
+                className="relative w-24 h-24 mx-auto mb-4 group cursor-pointer"
+                onClick={handleImageClick}
+              >
+                {user?.image_url ? (
+                  <img 
+                    src={user.image_url} 
+                    alt={user.name} 
+                    className="w-full h-full rounded-full object-cover shadow-lg border-2 border-sky-500/20"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-sky-500 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-sky-500/20">
+                    {user?.name?.[0]?.toUpperCase() || "U"}
+                  </div>
+                )}
+                
+                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  {uploading ? (
+                    <FiLoader className="text-white animate-spin text-xl" />
+                  ) : (
+                    <FiCamera className="text-white text-xl" />
+                  )}
+                </div>
+                
+                <input 
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageChange}
+                  accept="image/*"
+                  className="hidden"
+                />
               </div>
+
               <h2 className="text-lg font-bold text-slate-800 dark:text-white">{user?.name}</h2>
               <p className="text-xs font-semibold text-sky-500 uppercase tracking-widest mt-1">{user?.role}</p>
               <div className="mt-6 pt-6 border-t border-black/[.04] dark:border-white/[.06] space-y-3 text-left">
@@ -153,16 +213,16 @@ export default function Profile() {
                 <div className="space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                      <span className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Full Identity</span>
+                      <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase mb-1 ml-1">Full Identity</span>
                       <p className="text-slate-800 dark:text-white font-medium px-1">{user?.name || "—"}</p>
                     </div>
                     <div>
-                      <span className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Contact Number</span>
+                      <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase mb-1 ml-1">Contact Number</span>
                       <p className="text-slate-800 dark:text-white font-medium px-1">{user?.number || "—"}</p>
                     </div>
                   </div>
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">Personal Description</span>
+                    <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase mb-2 ml-1">Personal Description</span>
                     <div className="bg-black/[.02] dark:bg-white/[.02] rounded-2xl p-4 text-sm text-slate-600 dark:text-slate-300 leading-relaxed italic border border-black/[.01] dark:border-white/[.01]">
                       {user?.description || "No professional description has been provided for this identity node."}
                     </div>

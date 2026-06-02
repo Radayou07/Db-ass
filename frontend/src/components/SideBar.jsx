@@ -18,14 +18,12 @@ const ADMIN_NAV = [
   { to: "/customers",  Icon: IoMdPeople,     label: "Customers" },
   { to: "/suppliers",  Icon: FaHandsHelping, label: "Suppliers" },
   { to: "/analysis",  Icon: MdAnalytics,    label: "Analysis" },
-  { to: "/profile",   Icon: FiUser,         label: "Profile" },
 ]
 
 const CUSTOMER_NAV = [
   { to: "/",          Icon: IoMdHome,       label: "Home" },
   { to: "/products",   Icon: MdShoppingCart, label: "Storefront" },
   { to: "/orders",     Icon: GiShoppingBag,  label: "My Orders" },
-  { to: "/profile",   Icon: FiUser,         label: "Profile" },
 ]
 
 // Get initials from a name e.g. "John Doe" → "JD"
@@ -57,7 +55,7 @@ export default function SideBar({ isDark, setIsDark }) {
       className={`
         flex flex-col shrink-0 h-screen
         bg-slider-bg dark:bg-slider-dark-bg
-        border-r border-white/5
+        border-r border-slate-200 dark:border-white/5
         overflow-hidden
         transition-[width] duration-300 ease-in-out
         ${isOpen ? "w-60" : "w-[68px]"}
@@ -65,13 +63,13 @@ export default function SideBar({ isDark, setIsDark }) {
     >
       {/* ── Brand + toggle ── */}
       <div className={`
-        flex items-center h-16 px-4 shrink-0 border-b border-white/5
+        flex items-center h-16 px-4 shrink-0 border-b border-slate-200 dark:border-white/5
         ${isOpen ? "justify-between" : "justify-center"}
       `}>
         {isOpen && (
           <div className="flex items-center gap-2">
             <MdInventory2 className="text-side-icon text-lg" />
-            <span className="text-white font-semibold tracking-wide text-sm select-none">
+            <span className="text-slate-900 dark:text-white font-semibold tracking-wide text-sm select-none">
               <span className="text-side-icon">Inv</span>entory
             </span>
           </div>
@@ -79,7 +77,7 @@ export default function SideBar({ isDark, setIsDark }) {
         <button
           onClick={() => setIsOpen(o => !o)}
           title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors duration-150"
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors duration-150"
         >
           {isOpen ? <RiMenuFoldLine size={20} /> : <RiMenuUnfoldLine size={20} />}
         </button>
@@ -99,8 +97,8 @@ export default function SideBar({ isDark, setIsDark }) {
                 text-sm font-medium whitespace-nowrap
                 transition-colors duration-150 group
                 ${active
-                  ? "bg-white/10 text-white"
-                  : "text-side-text hover:bg-white/[.06] hover:text-white"
+                  ? "bg-sky-50 dark:bg-white/10 text-sky-600 dark:text-white"
+                  : "text-side-text hover:bg-slate-100 dark:hover:bg-white/[.06] hover:text-slate-900 dark:hover:text-white"
                 }
               `}
             >
@@ -113,7 +111,7 @@ export default function SideBar({ isDark, setIsDark }) {
 
               <Icon className={`
                 shrink-0 w-5 h-5 transition-colors duration-150
-                ${active ? "text-side-icon" : "text-slate-500 group-hover:text-side-icon"}
+                ${active ? "text-side-icon" : "text-slate-400 group-hover:text-side-icon"}
               `} />
 
               <span className={`
@@ -128,44 +126,57 @@ export default function SideBar({ isDark, setIsDark }) {
       </nav>
 
       {/* ── User info + logout ── */}
-      <div className="shrink-0 border-t border-white/5 px-2 py-3 space-y-1">
-        <div className={`
-          flex items-center gap-3 px-3 py-2 rounded-xl
-          ${isOpen ? "" : "justify-center"}
-        `}>
-          <div
-            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
-            style={{ background: "#38bdf8" }}
-          >
-            {initials(user?.name)}
-          </div>
+      <div className="shrink-0 border-t border-slate-200 dark:border-white/5 px-2 py-3 space-y-1">
+        <Link
+          to="/profile"
+          title={!isOpen ? "Profile" : undefined}
+          className={`
+            flex items-center gap-3 px-3 py-2 rounded-xl
+            hover:bg-slate-100 dark:hover:bg-white/[.06] transition-colors duration-150
+            ${isOpen ? "" : "justify-center"}
+          `}
+        >
+          {user?.image_url ? (
+            <img 
+              src={user.image_url} 
+              alt={user.name} 
+              className="shrink-0 w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-white/10"
+            />
+          ) : (
+            <div
+              className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+              style={{ background: "#38bdf8" }}
+            >
+              {initials(user?.name)}
+            </div>
+          )}
 
           <div className={`
             overflow-hidden transition-[max-width,opacity] duration-300 ease-in-out min-w-0
             ${isOpen ? "max-w-xs opacity-100" : "max-w-0 opacity-0"}
           `}>
-            <p className="text-white text-xs font-medium truncate leading-tight">
+            <p className="text-slate-900 dark:text-white text-xs font-medium truncate leading-tight">
               {user?.name || "—"}
             </p>
             <span className={`
               text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase
               ${isAdmin
-                ? "bg-sky-500/20 text-sky-400"
+                ? "bg-sky-500/20 text-sky-500"
                 : isCustomer 
-                  ? "bg-emerald-500/20 text-emerald-400"
-                  : "bg-slate-500/20 text-slate-400"
+                  ? "bg-emerald-500/20 text-emerald-500"
+                  : "bg-slate-500/20 text-slate-500"
               }
             `}>
               {user?.role || "staff"}
             </span>
           </div>
-        </div>
+        </Link>
 
         <button
           onClick={handleLogout}
           title={!isOpen ? "Logout" : undefined}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-                     text-sm font-medium text-slate-400 hover:text-white hover:bg-white/[.06]
+                     text-sm font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[.06]
                      transition-colors duration-150"
         >
           <FiLogOut className="shrink-0 w-5 h-5" />

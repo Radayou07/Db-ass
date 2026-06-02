@@ -93,9 +93,9 @@ export default function Staff() {
           </div>
         ) : staff.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-10">
-            <FiUsers className="w-16 h-16 text-slate-200 dark:text-slate-800 mb-4" />
-            <h3 className="text-lg font-bold text-slate-400">Team Catalog Node</h3>
-            <p className="text-sm text-slate-400 max-w-xs mt-2">No internal users found in the system catalog.</p>
+            <FiUsers className="w-16 h-16 text-slate-200 dark:text-slate-600 mb-4" />
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white uppercase tracking-tight">Team Catalog Node</h3>
+            <p className="text-sm text-slate-400 dark:text-slate-300 max-w-xs mt-2">No internal users found in the system catalog.</p>
           </div>
         ) : (
           <div className="overflow-y-auto h-full">

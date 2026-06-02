@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt
 from sqlalchemy import func
 from extensions import db
-from models import Product, Category, Inventory, ProductImage, Warehouse, UnitOfMeasure
+from models import Product, Category, Inventory, ProductImage, Warehouse, UnitOfMeasure, OrderDetail, Purchase, PurchaseDetail
 from datetime import datetime
 
 product_bp = Blueprint("product", __name__)
@@ -49,6 +49,13 @@ def get_products():
     
     product_list = []
     for product, cat_name, total_stock, uom_name, uom_abbr in results:
+        # Get last purchase cost
+        last_purchase = PurchaseDetail.query.filter_by(product_id=product.id)\
+            .join(Purchase)\
+            .order_by(Purchase.date.desc(), Purchase.id.desc())\
+            .first()
+        last_cost = float(last_purchase.price) if last_purchase else 0
+
         # Safely handle images if table doesn't exist yet
         try:
             images = [img.to_dict() for img in product.images]
@@ -60,6 +67,7 @@ def get_products():
             "name": product.name,
             "description": product.description,
             "price": float(product.price),
+            "last_cost": last_cost,
             "company": product.company,
             "expire": product.expire.isoformat() if product.expire else None,
             "category_id": product.category_id,
@@ -68,6 +76,8 @@ def get_products():
             "uom_name": uom_name,
             "uom_abbreviation": uom_abbr,
             "stock": int(total_stock) if total_stock is not None else 0,
+            "supplier_id": product.supplier_id,
+            "supplier_name": product.supplier.name if product.supplier else "No Supplier",
             "images": [{**img, "url": img["url"].replace(":5000/", ":5001/")} for img in images]
         })
 
@@ -107,7 +117,8 @@ def create_product():
             company=data.get("company", "Unknown").strip() or "Unknown",
             expire=expire_date,
             category_id=int(category_id),
-            uom_id=int(uom_id)
+            uom_id=int(uom_id),
+            supplier_id=data.get("supplier_id")
         )
 
         print("Adding product to session...")
@@ -181,11 +192,19 @@ def get_single_product(id):
     # Get primary warehouse record if it exists
     primary_inv = Inventory.query.filter_by(product_id=id).first()
 
+    # Get last purchase cost
+    last_purchase = PurchaseDetail.query.filter_by(product_id=id)\
+        .join(Purchase)\
+        .order_by(Purchase.date.desc(), Purchase.id.desc())\
+        .first()
+    last_cost = float(last_purchase.price) if last_purchase else 0
+
     return jsonify({
         "id": product.id,
         "name": product.name,
         "description": product.description,
         "price": float(product.price),
+        "last_cost": last_cost,
         "company": product.company,
         "expire": product.expire.isoformat() if product.expire else None,
         "category_id": product.category_id,
@@ -195,6 +214,8 @@ def get_single_product(id):
         "uom_abbreviation": product.uom.abbreviation if product.uom else None,
         "stock": int(stock_sum) if stock_sum is not None else 0,
         "warehouse_id": primary_inv.warehouse_id if primary_inv else None,
+        "supplier_id": product.supplier_id,
+        "supplier_name": product.supplier.name if product.supplier else "No Supplier",
         "images": [{**img, "url": img["url"].replace(":5000/", ":5001/")} for img in images]
     }), 200
 
@@ -218,6 +239,7 @@ def update_product(id):
         if "company" in data: product.company = data["company"].strip() or "Unknown"
         if "category_id" in data: product.category_id = int(data["category_id"])
         if "uom_id" in data: product.uom_id = int(data["uom_id"])
+        if "supplier_id" in data: product.supplier_id = data["supplier_id"]
         
         if "expire" in data:
             if data["expire"]:
@@ -287,6 +309,10 @@ def delete_product(id):
     product = Product.query.get(id)
     if not product:
         return jsonify({"error": "Target tracking entity not found."}), 404
+
+    # Check for transaction history
+    if OrderDetail.query.filter_by(product_id=id).first() or PurchaseDetail.query.filter_by(product_id=id).first():
+        return jsonify({"error": "Cannot delete product with existing transaction history (Orders/Purchases)."}), 400
 
     # Safe clear inventory tracking records tied to this product to ensure cascades don't lock MySQL
     Inventory.query.filter_by(product_id=id).delete()

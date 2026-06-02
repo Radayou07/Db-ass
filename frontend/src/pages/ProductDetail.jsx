@@ -52,7 +52,7 @@ export default function ProductDetail() {
   if (error || !product) {
     return (
       <div className="h-screen flex flex-col items-center justify-center text-center bg-main-bg dark:bg-main-dark-bg p-6">
-        <FiPackage className="w-20 h-20 text-slate-200 dark:text-slate-800 mb-6" />
+        <FiPackage className="w-20 h-20 text-slate-200 dark:text-slate-600 mb-6" />
         <h2 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tighter">{error || "Entity Missing"}</h2>
         <button 
           onClick={() => navigate("/products")}
@@ -102,7 +102,7 @@ export default function ProductDetail() {
                 {images[activeImage]?.url ? (
                   <img src={images[activeImage].url} className="w-full h-full object-contain p-4 transition-all duration-700" alt={product.name} />
                 ) : (
-                  <FiPackage size={120} className="text-slate-200 dark:text-slate-800" />
+                  <FiPackage size={120} className="text-slate-200 dark:text-slate-600" />
                 )}
 
                 {/* Arrow Navigation */}
@@ -110,15 +110,15 @@ export default function ProductDetail() {
                   <>
                     <button 
                       onClick={prevImage}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-black/5 dark:border-white/5 flex items-center justify-center text-slate-800 dark:text-white opacity-0 group-hover/gallery:opacity-100 transition-all hover:bg-white dark:hover:bg-slate-700 shadow-lg active:scale-90"
+                      className="absolute left-6 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border border-black/10 dark:border-white/10 flex items-center justify-center text-slate-900 dark:text-white opacity-0 group-hover/gallery:opacity-100 transition-all hover:bg-white dark:hover:bg-slate-700 shadow-2xl active:scale-90 z-20 font-black text-2xl"
                     >
-                      <FiChevronLeft size={24} />
+                      &lt;
                     </button>
                     <button 
                       onClick={nextImage}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-black/5 dark:border-white/5 flex items-center justify-center text-slate-800 dark:text-white opacity-0 group-hover/gallery:opacity-100 transition-all hover:bg-white dark:hover:bg-slate-700 shadow-lg active:scale-90"
+                      className="absolute right-6 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border border-black/10 dark:border-white/10 flex items-center justify-center text-slate-900 dark:text-white opacity-0 group-hover/gallery:opacity-100 transition-all hover:bg-white dark:hover:bg-slate-700 shadow-2xl active:scale-90 z-20 font-black text-2xl"
                     >
-                      <FiChevronRight size={24} />
+                      &gt;
                     </button>
                   </>
                 )}
@@ -132,11 +132,16 @@ export default function ProductDetail() {
 
                 {/* Image Indicator Dots */}
                 {images.length > 1 && (
-                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5 px-3 py-1.5 bg-black/10 dark:bg-white/5 backdrop-blur-md rounded-full">
+                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 px-4 py-2 bg-black/30 dark:bg-white/10 backdrop-blur-md rounded-full z-20 shadow-lg">
                     {images.map((_, idx) => (
-                      <div 
+                      <button 
                         key={idx} 
-                        className={`h-1.5 rounded-full transition-all duration-300 ${activeImage === idx ? 'w-4 bg-sky-500' : 'w-1.5 bg-slate-300 dark:bg-slate-600'}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setActiveImage(idx)
+                        }}
+                        className={`h-2 rounded-full transition-all duration-300 ${activeImage === idx ? 'w-6 bg-sky-400' : 'w-2 bg-white/60 hover:bg-white'}`}
+                        title={`View image ${idx + 1}`}
                       />
                     ))}
                   </div>

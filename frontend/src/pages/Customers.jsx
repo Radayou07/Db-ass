@@ -35,7 +35,7 @@ function StatCard({ icon: Icon, label, value, iconClass, cardClass }) {
         <Icon size={18} />
       </span>
       <div>
-        <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wide">{label}</p>
+        <p className="text-[11px] text-slate-400 dark:text-slate-300 font-medium uppercase tracking-wide">{label}</p>
         <p className="text-xl font-bold text-slate-800 dark:text-white leading-tight">{value}</p>
       </div>
     </Card>
@@ -79,13 +79,13 @@ function CustomerModal({ initial, onSave, onClose }) {
             <h2 className="text-base font-semibold text-slate-800 dark:text-white">
               {isEdit ? "Edit Customer" : "New Customer"}
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-400 dark:text-slate-300 mt-0.5">
               {isEdit ? "Update customer details" : "Fill in the details below"}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-transparent/5 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-transparent/5 transition-colors"
           >
             <FiX size={18} />
           </button>
@@ -99,13 +99,13 @@ function CustomerModal({ initial, onSave, onClose }) {
             { field: "address", label: "Address",       icon: FiMapPin, placeholder: "Street, City, Province",   type: "text"  },
           ].map(({ field, label, icon: Icon, placeholder, type }) => (
             <div key={field}>
-              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">{label}</label>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-300 mb-1.5">{label}</label>
               <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-colors
                 ${errors[field]
                   ? "border-red-400 bg-red-50 dark:bg-red-950/20"
                   : "border-black/10 dark:border-white/10 bg-transparent dark:bg-transparent/5 focus-within:border-sky-400"
                 }`}>
-                <Icon size={15} className="text-slate-400 shrink-0" />
+                <Icon size={15} className="text-slate-400 dark:text-slate-300 shrink-0" />
                 <input
                   type={type}
                   value={form[field] || ""}
@@ -125,7 +125,7 @@ function CustomerModal({ initial, onSave, onClose }) {
         <div className="flex items-center justify-end gap-2 px-6 pb-5 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-xl text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-transparent/5 transition-colors"
+            className="px-4 py-2 text-sm rounded-xl text-slate-500 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-transparent/5 transition-colors"
           >
             Cancel
           </button>
@@ -152,7 +152,7 @@ function DeleteModal({ customer, onConfirm, onClose }) {
         </span>
         <div>
           <h3 className="font-semibold text-slate-800 dark:text-white">Delete Customer</h3>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-400 dark:text-slate-300 mt-1">
             Are you sure you want to delete <span className="font-medium text-slate-600 dark:text-slate-300">{customer.name}</span>?
             This action cannot be undone.
           </p>
@@ -160,7 +160,7 @@ function DeleteModal({ customer, onConfirm, onClose }) {
         <div className="flex gap-2 w-full">
           <button
             onClick={onClose}
-            className="flex-1 py-2 text-sm rounded-xl border border-black/10 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-transparent/5 transition-colors"
+            className="flex-1 py-2 text-sm rounded-xl border border-black/10 dark:border-white/10 text-slate-500 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-transparent/5 transition-colors"
           >
             Cancel
           </button>
@@ -213,19 +213,19 @@ function CustomerDetailsModal({ customer, onClose }) {
             </span>
             <div>
               <h2 className="text-lg font-bold text-slate-800 dark:text-white">{customer.name}</h2>
-              <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mt-0.5">
+              <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-300 mt-0.5">
                  <span className="flex items-center gap-1"><FiPhone size={10}/> {customer.number}</span>
                  <span className="flex items-center gap-1 text-sky-500"><FiMapPin size={10}/> {customer.address}</span>
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-black/5 dark:hover:bg-transparent/10 transition-all"><FiX size={20} /></button>
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-transparent/10 transition-all"><FiX size={20} /></button>
         </div>
 
         {/* History Body */}
         <div className="flex-1 overflow-hidden flex flex-col">
            <div className="px-6 py-4 bg-slate-50/50 dark:bg-transparent/20 border-b border-black/[.02] dark:border-white/[.02] flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest flex items-center gap-2">
                  <FiShoppingBag className="text-sky-500"/> Purchase History
               </h3>
               <span className="text-[10px] font-black bg-sky-100 dark:bg-sky-950/50 text-sky-600 px-2 py-0.5 rounded-full uppercase tracking-tighter">
@@ -237,12 +237,12 @@ function CustomerDetailsModal({ customer, onClose }) {
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
                    <FiActivity size={32} className="text-sky-500 animate-pulse"/>
-                   <p className="text-xs text-slate-400 font-medium">Syncing Ledger...</p>
+                   <p className="text-xs text-slate-400 dark:text-slate-300 font-medium">Syncing Ledger...</p>
                 </div>
               ) : history.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-40 italic">
                    <FiShoppingBag size={40} className="text-slate-300"/>
-                   <p className="text-sm text-slate-400">No transaction records found for this entity.</p>
+                   <p className="text-sm text-slate-400 dark:text-slate-300">No transaction records found for this entity.</p>
                 </div>
               ) : (
                 <div className="space-y-3 py-4">
@@ -290,7 +290,7 @@ function SortTh({ label, field, sort, onSort, className = "" }) {
   return (
     <th
       onClick={() => onSort(field)}
-      className={`px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer select-none whitespace-nowrap hover:text-slate-600 dark:hover:text-slate-200 transition-colors ${className}`}
+      className={`px-4 py-3 text-left text-[11px] font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wider cursor-pointer select-none whitespace-nowrap hover:text-slate-600 dark:hover:text-slate-200 transition-colors ${className}`}
     >
       <span className="inline-flex items-center gap-1">
         {label}
@@ -397,13 +397,13 @@ export default function Customers() {
   }
 
   return (
-    <div className="h-screen p-5 flex flex-col gap-5 text-slate-700 dark:text-slate-200">
+    <div className="h-screen p-5 flex flex-col gap-5 text-slate-700 dark:text-slate-100">
 
       {/* ── Page header ── */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-800 dark:text-white">Customers</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Manage your customer records</p>
+          <p className="text-xs text-slate-400 dark:text-slate-300 mt-0.5">Manage your customer records</p>
         </div>
         <button
           onClick={() => setModal({ mode: "add" })}
@@ -497,12 +497,12 @@ export default function Customers() {
                     </td>
 
                     {/* Phone */}
-                    <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                    <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-300 whitespace-nowrap">
                       {c.number}
                     </td>
 
                     {/* Address */}
-                    <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 max-w-[200px] truncate">
+                    <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-300 max-w-[200px] truncate">
                       {c.address}
                     </td>
 

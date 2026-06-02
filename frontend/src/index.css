@@ -3,9 +3,9 @@
 
 @theme {
   /* --- Sidebar / Navigation --- */
-  --color-side-text: #cbd5e1;
+  --color-side-text: #64748b; /* Slate 500 */
   --color-side-icon: #38bdf8;
-  --color-slider-bg: #0f172a;
+  --color-slider-bg: #f8fafc; /* Slate 50 */
   --color-slider-dark-bg: #020617;
 
   /* --- Page Surface --- */

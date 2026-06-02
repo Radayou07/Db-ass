@@ -55,13 +55,13 @@ def delete_customer(id):
     if not customer:
         return jsonify({"error": "Customer not found"}), 404
     
-    try:
-        db.session.delete(customer)
-        db.session.commit()
-        return jsonify({"message": "Customer removed successfully."}), 200
-    except Exception as e:
-        db.session.rollback()
+    # Check for transaction history
+    if Orders.query.filter_by(customer_id=id).first():
         return jsonify({"error": "Cannot delete customer with active order history. Archive them instead."}), 400
+
+    db.session.delete(customer)
+    db.session.commit()
+    return jsonify({"message": "Customer removed successfully."}), 200
 
 @customer_bp.route("/<int:id>/orders", methods=["GET"])
 @jwt_required()

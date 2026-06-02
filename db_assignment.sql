@@ -331,11 +331,14 @@ CREATE TABLE `product` (
   `expire` date DEFAULT NULL,
   `category_id` int NOT NULL,
   `uom_id` int DEFAULT NULL,
+  `supplier_id` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `fk_product_category_idx` (`category_id`),
   KEY `fk_product_uom` (`uom_id`),
+  KEY `fk_product_supplier_idx` (`supplier_id`),
   CONSTRAINT `fk_product_category` FOREIGN KEY (`category_id`) REFERENCES `category` (`id`),
-  CONSTRAINT `fk_product_uom` FOREIGN KEY (`uom_id`) REFERENCES `unit_of_measure` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+  CONSTRAINT `fk_product_uom` FOREIGN KEY (`uom_id`) REFERENCES `unit_of_measure` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_product_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `supplier` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -345,7 +348,7 @@ CREATE TABLE `product` (
 
 LOCK TABLES `product` WRITE;
 /*!40000 ALTER TABLE `product` DISABLE KEYS */;
-INSERT INTO `product` VALUES (1,'Budak','best when rain. cool and chill.',1.00,'korean','2026-08-30',2,NULL),(2,'Coca Cola','Best on a party day. Make memory with Coca Cola.',0.50,'idk',NULL,3,NULL),(3,'Sting','die from suger',0.50,'Unknown',NULL,3,2),(4,'A-11',NULL,25.00,'Young',NULL,4,1);
+INSERT INTO `product` VALUES (1,'Budak','best when rain. cool and chill.',1.00,'korean','2026-08-30',2,NULL,1),(2,'Coca Cola','Best on a party day. Make memory with Coca Cola.',0.50,'idk',NULL,3,NULL,1),(3,'Sting','die from suger',0.50,'Unknown',NULL,3,2,1),(4,'A-11',NULL,25.00,'Young',NULL,4,1,1);
 /*!40000 ALTER TABLE `product` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -451,11 +454,9 @@ DROP TABLE IF EXISTS `supplier`;
 CREATE TABLE `supplier` (
   `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
-  `number` varchar(45) NOT NULL,
   `email` varchar(100) NOT NULL,
   `address` varchar(255) NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_supplier_number` (`number`),
   UNIQUE KEY `uq_supplier_email` (`email`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -466,8 +467,64 @@ CREATE TABLE `supplier` (
 
 LOCK TABLES `supplier` WRITE;
 /*!40000 ALTER TABLE `supplier` DISABLE KEYS */;
-INSERT INTO `supplier` VALUES (1,'Insou','01231241','insou@gmail.com','pp');
+INSERT INTO `supplier` VALUES (1,'Insou','insou@gmail.com','pp');
 /*!40000 ALTER TABLE `supplier` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `supplier_number`
+--
+
+DROP TABLE IF EXISTS `supplier_number`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `supplier_number` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `supplier_id` int NOT NULL,
+  `number` varchar(45) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_supplier_number` (`number`),
+  KEY `fk_supplier_number_supplier_idx` (`supplier_id`),
+  CONSTRAINT `fk_supplier_number_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `supplier` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `supplier_number`
+--
+
+LOCK TABLES `supplier_number` WRITE;
+/*!40000 ALTER TABLE `supplier_number` DISABLE KEYS */;
+INSERT INTO `supplier_number` VALUES (1, 1, '01231241');
+/*!40000 ALTER TABLE `supplier_number` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `supplier_image`
+--
+
+DROP TABLE IF EXISTS `supplier_image`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `supplier_image` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `supplier_id` int NOT NULL,
+  `url` varchar(255) NOT NULL,
+  `is_primary` tinyint(1) NOT NULL DEFAULT '0',
+  `uploaded_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_supplier_image_supplier_idx` (`supplier_id`),
+  CONSTRAINT `fk_supplier_image_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `supplier` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `supplier_image`
+--
+
+LOCK TABLES `supplier_image` WRITE;
+/*!40000 ALTER TABLE `supplier_image` DISABLE KEYS */;
+/*!40000 ALTER TABLE `supplier_image` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --

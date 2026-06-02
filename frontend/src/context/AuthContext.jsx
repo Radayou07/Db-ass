@@ -59,6 +59,10 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
+  const updateUser = (userData) => {
+    setUser(userData)
+  }
+
   // ── Helpers ────────────────────────────────────────────
   const isAuthenticated = !!token
   const isAdmin         = user?.role === "admin"
@@ -110,6 +114,7 @@ export function AuthProvider({ children }) {
       logout,
       register,
       authFetch,
+      updateUser,
     }}>
       {children}
     </AuthContext.Provider>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { Link } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { FiBox, FiShoppingCart, FiLayers, FiAlertTriangle, FiActivity, FiUsers, FiHeart, FiPackage, FiShoppingBag, FiTag } from "react-icons/fi"
 
@@ -146,13 +147,13 @@ export default function Home() {
   ]
 
   return (
-    <div className="h-screen p-5 flex flex-col gap-5 text-slate-700 dark:text-slate-200">
+    <div className="h-screen p-5 flex flex-col gap-5 text-slate-700 dark:text-slate-100">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-800 dark:text-white">
             {isInternal ? "Executive Dashboard" : `Welcome back, ${user?.name.split(" ")[0]}!`}
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-400 dark:text-slate-300 mt-0.5">
             {isInternal ? "Real-time system operational metrics." : "Explore our catalog and track your latest orders below."}
           </p>
         </div>
@@ -167,9 +168,9 @@ export default function Home() {
                 <Icon size={18} />
               </span>
               <div className="min-w-0">
-                <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wide truncate">{label}</p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-300 font-medium uppercase tracking-wide truncate">{label}</p>
                 <p className="text-xl font-bold leading-tight">{value}</p>
-                <p className="text-[10px] text-slate-400 mt-0.5 truncate">{sub}</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-300 mt-0.5 truncate">{sub}</p>
               </div>
             </Card>
           ))}
@@ -179,7 +180,7 @@ export default function Home() {
           <>
             {/* Top customers */}
             <Card className="col-span-1 row-span-2 row-start-2 p-4 flex flex-col gap-3 overflow-hidden">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-2"><FiUsers/> Top Consumers</p>
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide flex items-center gap-2"><FiUsers/> Top Consumers</p>
               <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
                 {topCustomers.map((c, i) => (
                   <div key={c.name} className="flex items-center gap-2.5">
@@ -188,7 +189,7 @@ export default function Home() {
                     </span>
                     <div className="min-w-0">
                       <p className="text-xs font-medium truncate">{c.name}</p>
-                      <p className="text-[10px] text-slate-400">{c.orders} orders</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-300">{c.orders} orders</p>
                     </div>
                   </div>
                 ))}
@@ -197,14 +198,14 @@ export default function Home() {
 
             {/* Donut chart */}
             <Card className="col-span-2 row-span-2 row-start-2 p-4 flex flex-col gap-2">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Inventory Health</p>
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide">Inventory Health</p>
               <div className="flex-1 flex items-center justify-around">
                 <DonutChart data={PIE_DATA} size={120} />
                 <div className="flex flex-col gap-2">
                   {PIE_DATA.map(d => (
                     <div key={d.label} className="flex items-center gap-2 text-xs">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
-                      <span className="text-slate-500 dark:text-slate-400">{d.label}</span>
+                      <span className="text-slate-500 dark:text-slate-300">{d.label}</span>
                       <span className="font-semibold ml-auto pl-3">{d.value}</span>
                     </div>
                   ))}
@@ -214,16 +215,16 @@ export default function Home() {
 
             {/* Top 10 Products */}
             <Card className="col-span-2 row-span-5 col-start-4 row-start-2 p-4 flex flex-col gap-3 overflow-hidden">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Revenue Drivers (Top 10)</p>
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide">Revenue Drivers (Top 10)</p>
               <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto pr-1">
                 {topProducts.map((p, i) => (
                   <div key={p.name} className="flex flex-col gap-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600 w-4">#{i + 1}</span>
+                        <span className="text-[10px] font-bold text-slate-300 dark:text-slate-500 w-4">#{i + 1}</span>
                         <span className="font-medium truncate max-w-[140px]">{p.name}</span>
                       </span>
-                      <span className="text-slate-400 shrink-0">{p.sold} sold</span>
+                      <span className="text-slate-400 dark:text-slate-300 shrink-0">{p.sold} sold</span>
                     </div>
                     <div className="h-1 rounded-full bg-transparent dark:bg-transparent/5 overflow-hidden">
                       <div
@@ -239,8 +240,8 @@ export default function Home() {
             {/* Time series placeholder */}
             <Card className="col-span-3 row-span-3 row-start-4 p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Purchase vs Sale Trends</p>
-                <p className="text-[8px] text-slate-400 italic font-mono uppercase tracking-widest">Projection Data Only</p>
+                <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide">Purchase vs Sale Trends</p>
+                <p className="text-[8px] text-slate-400 dark:text-slate-300 italic font-mono uppercase tracking-widest">Projection Data Only</p>
               </div>
               <div className="flex-1 flex items-center min-h-0 opacity-40 grayscale">
                 <TimeSeriesChart data={[
@@ -260,12 +261,12 @@ export default function Home() {
                       <FiHeart className="text-rose-500 w-10 h-10 fill-rose-500 animate-pulse" />
                    </div>
                    <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Your Storefront Hub.</h2>
-                   <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                   <p className="text-slate-500 dark:text-slate-300 text-sm leading-relaxed">
                       Thank you for being part of our network. From this terminal, you can browse our live catalog, track your order fulfillment, and manage your delivery details.
                    </p>
                    <div className="pt-4 flex items-center justify-center gap-3">
-                      <a href="/products" className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-sky-200 dark:shadow-none transition-all">Explore Products</a>
-                      <a href="/orders" className="px-6 py-3 bg-transparent dark:bg-transparent/10 text-slate-700 dark:text-white rounded-2xl font-bold text-sm border border-black/5 dark:border-white/5 transition-all">My History</a>
+                      <Link to="/products" className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-sky-200 dark:shadow-none transition-all">Explore Products</Link>
+                      <Link to="/orders" className="px-6 py-3 bg-transparent dark:bg-transparent/10 text-slate-700 dark:text-white rounded-2xl font-bold text-sm border border-black/5 dark:border-white/5 transition-all">My History</Link>
                    </div>
                 </div>
                 {/* Decorative background icon */}
@@ -274,16 +275,16 @@ export default function Home() {
 
              <div className="grid grid-cols-3 gap-6 h-40">
                 <Card className="p-4 flex flex-col justify-between border-b-4 border-sky-400">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Store Policy</p>
-                   <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Fast delivery within 24 hours of confirmation.</p>
+                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Store Policy</p>
+                   <p className="text-sm font-medium text-slate-600 dark:text-slate-100">Fast delivery within 24 hours of confirmation.</p>
                 </Card>
                 <Card className="p-4 flex flex-col justify-between border-b-4 border-teal-400">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Catalog Sync</p>
-                   <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Live prices and stock levels directly from our hub.</p>
+                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Catalog Sync</p>
+                   <p className="text-sm font-medium text-slate-600 dark:text-slate-100">Live prices and stock levels directly from our hub.</p>
                 </Card>
                 <Card className="p-4 flex flex-col justify-between border-b-4 border-violet-400">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Support Node</p>
-                   <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Reach out via our hotline for instant order tracking.</p>
+                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Support Node</p>
+                   <p className="text-sm font-medium text-slate-600 dark:text-slate-100">Reach out via our hotline for instant order tracking.</p>
                 </Card>
              </div>
           </div>

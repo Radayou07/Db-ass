@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useAuth } from "../context/AuthContext"
 import {
   FiSearch, FiPlus, FiEdit2, FiTrash2, FiX,
   FiTruck, FiUsers, FiMail, FiPhone, FiMapPin,
-  FiChevronUp, FiChevronDown, FiAlertTriangle, FiActivity, FiCalendar, FiDollarSign, FiShoppingBag, FiLayers, FiCheck, FiPlusCircle, FiMinusCircle, FiTag, FiBox
+  FiChevronUp, FiChevronDown, FiAlertTriangle, FiActivity, FiCalendar, FiDollarSign, FiShoppingBag, FiLayers, FiCheck, FiPlusCircle, FiMinusCircle, FiTag, FiBox, FiCamera, FiLoader, FiUploadCloud
 } from "react-icons/fi"
 
 /* ─── Helpers ─── */
@@ -14,7 +14,7 @@ const AVATAR_COLORS = [
 const avatarColor = id => AVATAR_COLORS[id % AVATAR_COLORS.length]
 const initials    = name => name.trim().split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase()
 
-const EMPTY = { name:"", number:"", email:"", address:"" }
+const EMPTY = { name:"", numbers:[""], email:"", address:"", images: [] }
 
 /* ─── Shared primitives ─── */
 function Card({ children, className="" }) {
@@ -81,7 +81,7 @@ function ConfirmDelete({ name, onConfirm, onClose }) {
 
 /* ─── Quick Add Product Modal ─── */
 function QuickAddProductModal({ categories, units, onClose, onSave }) {
-  const [form, setForm] = useState({ name: "", price: "", category_id: categories[0]?.id || "", uom_id: units[0]?.id || "", company: "Wholesale" })
+  const [form, setForm] = useState({ name: "", price: 0, category_id: categories[0]?.id || "", uom_id: units[0]?.id || "", company: "Wholesale" })
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -103,18 +103,9 @@ function QuickAddProductModal({ categories, units, onClose, onSave }) {
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-2 px-1">Product Identity</label>
                 <input required placeholder="Full Identity Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-transparent focus:border-sky-500 outline-none text-sm font-bold shadow-inner" />
              </div>
-             <div className="grid grid-cols-2 gap-4">
-                <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-2 px-1">Retail Unit</label>
-                   <div className="relative">
-                      <FiDollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={14}/>
-                      <input required type="number" step="0.01" placeholder="0.00" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="w-full pl-10 pr-4 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-transparent focus:border-sky-500 outline-none text-sm font-black shadow-inner" />
-                   </div>
-                </div>
-                <div>
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-2 px-1">Brand Node</label>
-                   <input required placeholder="Manufacturer" value={form.company} onChange={e => setForm({...form, company: e.target.value})} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-transparent focus:border-sky-500 outline-none text-sm font-bold shadow-inner" />
-                </div>
+             <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-2 px-1">Brand Node</label>
+                <input required placeholder="Manufacturer" value={form.company} onChange={e => setForm({...form, company: e.target.value})} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-transparent focus:border-sky-500 outline-none text-sm font-bold shadow-inner" />
              </div>
              <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -143,38 +134,25 @@ function QuickAddProductModal({ categories, units, onClose, onSave }) {
 }
 
 /* ─── Purchase Order Modal (Create Order) ─── */
-function PurchaseOrderModal({ supplier, products, categories, units, onClose, onSave, onQuickAddProduct }) {
+function PurchaseOrderModal({ supplier, products, onClose, onSave }) {
   const [items, setItems] = useState([{ product_id: "", quantity: 1, price: 0 }])
   const [note, setNote] = useState("")
   const [loading, setLoading] = useState(false)
-  const [showQuickAdd, setShowQuickAdd] = useState(false)
-  const [pendingIndex, setPendingIndex] = useState(null)
+
+  // Filter products to only show those belonging to this supplier
+  const supplierProducts = products.filter(p => p.supplier_id === supplier.id)
 
   const addItem = () => setItems([...items, { product_id: "", quantity: 1, price: 0 }])
   const removeItem = (idx) => setItems(items.filter((_, i) => i !== idx))
   
   const updateItem = (idx, field, val) => {
-    if (val === 'NEW_PRODUCT') {
-       setPendingIndex(idx)
-       setShowQuickAdd(true)
-       return
-    }
     const newItems = [...items]
     newItems[idx][field] = val
     if (field === 'product_id') {
       const p = products.find(p => String(p.id) === String(val))
-      if (p) newItems[idx].price = p.price * 0.8 
+      if (p) newItems[idx].price = p.last_cost || p.price * 0.8 
     }
     setItems(newItems)
-  }
-
-  const handleQuickAddSuccess = async (prodData) => {
-     const newProd = await onQuickAddProduct(prodData)
-     if (newProd && pendingIndex !== null) {
-        updateItem(pendingIndex, 'product_id', newProd.id)
-        setShowQuickAdd(false)
-        setPendingIndex(null)
-     }
   }
 
   const total = items.reduce((acc, item) => acc + (item.quantity * item.price), 0)
@@ -188,22 +166,28 @@ function PurchaseOrderModal({ supplier, products, categories, units, onClose, on
   }
 
   return (
-    <>
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
-        <div className="absolute inset-0" onClick={onClose} />
-        <div className="relative z-10 w-full max-w-3xl bg-box-bg dark:bg-box-dark-bg rounded-[2.5rem] shadow-2xl border border-box-border dark:border-box-dark-border flex flex-col max-h-[90vh] overflow-hidden">
-          <div className="flex items-center justify-between px-8 pt-7 pb-6 border-b border-slate-100 dark:border-slate-800">
-             <div>
-                <h2 className="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-3 tracking-tighter uppercase">
-                   <FiShoppingBag className="text-sky-500" size={28}/> Acquisition PO
-                </h2>
-                <p className="text-[10px] text-slate-400 mt-1 font-black uppercase tracking-[0.3em]">Partner: {supplier.name}</p>
-             </div>
-             <button onClick={onClose} className="p-3 rounded-2xl text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"><FiX size={24}/></button>
-          </div>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-3xl bg-box-bg dark:bg-box-dark-bg rounded-[2.5rem] shadow-2xl border border-box-border dark:border-box-dark-border flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="flex items-center justify-between px-8 pt-7 pb-6 border-b border-slate-100 dark:border-slate-800">
+           <div>
+              <h2 className="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-3 tracking-tighter uppercase">
+                 <FiShoppingBag className="text-sky-500" size={28}/> Acquisition PO
+              </h2>
+              <p className="text-[10px] text-slate-400 mt-1 font-black uppercase tracking-[0.3em]">Partner: {supplier.name}</p>
+           </div>
+           <button onClick={onClose} className="p-3 rounded-2xl text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"><FiX size={24}/></button>
+        </div>
 
-          <form onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col">
-             <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8 custom-scrollbar">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col">
+           <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8 custom-scrollbar">
+              {supplierProducts.length === 0 ? (
+                <div className="py-12 text-center">
+                  <FiAlertTriangle className="mx-auto text-amber-500 mb-4" size={40} />
+                  <p className="text-sm font-bold text-slate-600 dark:text-slate-300">No products registered for this supplier.</p>
+                  <p className="text-xs text-slate-400 mt-1">Please register products in the Catalog first.</p>
+                </div>
+              ) : (
                 <div className="space-y-4">
                    <div className="flex items-center justify-between px-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Acquisition Matrix</label>
@@ -221,9 +205,8 @@ function PurchaseOrderModal({ supplier, products, categories, units, onClose, on
                                 onChange={e => updateItem(idx, 'product_id', e.target.value)}
                                 className="w-full px-4 py-3 rounded-2xl bg-white dark:bg-slate-950 border border-transparent focus:border-sky-500 outline-none text-sm font-bold shadow-sm appearance-none cursor-pointer"
                               >
-                                <option value="">Select Entity...</option>
-                                <option value="NEW_PRODUCT" className="font-black text-sky-500">+ ADD NEW MASTER ITEM</option>
-                                {products.map(p => <option key={p.id} value={p.id}>{p.name} (${p.price})</option>)}
+                                <option value="">Select Registered Item...</option>
+                                {supplierProducts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                               </select>
                            </div>
                            <div className="w-24">
@@ -260,7 +243,9 @@ function PurchaseOrderModal({ supplier, products, categories, units, onClose, on
                       ))}
                    </div>
                 </div>
+              )}
 
+              {supplierProducts.length > 0 && (
                 <div>
                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-3 px-1">Logistics & Handling Note</label>
                    <textarea 
@@ -271,33 +256,24 @@ function PurchaseOrderModal({ supplier, products, categories, units, onClose, on
                      className="w-full px-6 py-4 rounded-[2rem] bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-sky-500 outline-none text-sm font-medium shadow-inner resize-none leading-relaxed"
                    />
                 </div>
-             </div>
+              )}
+           </div>
 
-             <div className="px-8 py-7 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-transparent/20 flex items-center justify-between">
+           <div className="px-8 py-7 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-transparent/20 flex items-center justify-between">
                 <div className="px-2">
                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Gross Acquisition</p>
                    <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">${total.toLocaleString(undefined, {minimumFractionDigits:2})}</p>
                 </div>
                 <div className="flex gap-4">
                    <button type="button" onClick={onClose} className="px-8 py-4 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-[0.2em] transition-all">Abort</button>
-                   <button type="submit" disabled={loading} className="px-12 py-4 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-sky-200 dark:shadow-none transition-all flex items-center gap-3 active:scale-95">
+                   <button type="submit" disabled={loading || supplierProducts.length === 0} className="px-12 py-4 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-sky-200 dark:shadow-none transition-all flex items-center gap-3 active:scale-95">
                       {loading ? "COMMITTING..." : <><FiCheck size={18}/> INITIALIZE LOG</>}
                    </button>
                 </div>
-             </div>
-          </form>
-        </div>
+           </div>
+        </form>
       </div>
-
-      {showQuickAdd && (
-        <QuickAddProductModal 
-          categories={categories} 
-          units={units} 
-          onClose={() => setShowQuickAdd(false)} 
-          onSave={handleQuickAddSuccess}
-        />
-      )}
-    </>
+    </div>
   )
 }
 
@@ -348,10 +324,12 @@ function ReceiptModal({ purchase, warehouses, onClose, onConfirm }) {
 }
 
 /* ─── Supplier Details Modal ─── */
-function SupplierDetailsModal({ supplier, onClose, onCreateOrder, onReceive }) {
+function SupplierDetailsModal({ supplier, onClose, onCreateOrder, onReceive, onUpdate }) {
   const { authFetch } = useAuth()
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     fetchHistory()
@@ -370,6 +348,38 @@ function SupplierDetailsModal({ supplier, onClose, onCreateOrder, onReceive }) {
     }
   }
 
+  const handleImageClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append("image", file)
+
+    setUploading(true)
+    try {
+      const res = await authFetch(`/suppliers/${supplier.id}/image`, {
+        method: "POST",
+        body: formData
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (onUpdate) onUpdate()
+        alert("Supplier image updated!")
+      } else {
+        const err = await res.json()
+        alert(err.error || "Failed to upload image")
+      }
+    } catch (err) {
+      alert("Upload error")
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md">
       <div className="absolute inset-0" onClick={onClose} />
@@ -377,14 +387,45 @@ function SupplierDetailsModal({ supplier, onClose, onCreateOrder, onReceive }) {
         {/* Header */}
         <div className="flex items-center justify-between px-8 pt-7 pb-6 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-5">
-            <span className={`w-14 h-14 rounded-[1.5rem] ${avatarColor(supplier.id)} flex items-center justify-center text-white text-xl font-black shrink-0 shadow-xl border-2 border-white/20`}>
-              {initials(supplier.name)}
-            </span>
+            <div 
+              className="relative w-14 h-14 group cursor-pointer shrink-0"
+              onClick={handleImageClick}
+            >
+              {supplier.image_url ? (
+                <img 
+                  src={supplier.image_url} 
+                  alt={supplier.name} 
+                  className="w-full h-full rounded-[1.5rem] object-cover shadow-xl border-2 border-white/20"
+                />
+              ) : (
+                <span className={`w-full h-full rounded-[1.5rem] ${avatarColor(supplier.id)} flex items-center justify-center text-white text-xl font-black shadow-xl border-2 border-white/20`}>
+                  {initials(supplier.name)}
+                </span>
+              )}
+              
+              <div className="absolute inset-0 bg-black/40 rounded-[1.5rem] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                {uploading ? (
+                  <FiLoader className="text-white animate-spin text-xl" />
+                ) : (
+                  <FiCamera className="text-white text-xl" />
+                )}
+              </div>
+              
+              <input 
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageChange}
+                accept="image/*"
+                className="hidden"
+              />
+            </div>
             <div>
               <h2 className="text-xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">{supplier.name}</h2>
-              <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mt-1">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mt-1">
                  <span className="flex items-center gap-1.5"><FiMail size={12} className="text-sky-500"/> {supplier.email}</span>
-                 <span className="flex items-center gap-1.5 text-violet-500"><FiPhone size={12}/> {supplier.number}</span>
+                 {supplier.numbers?.map((num, idx) => (
+                    <span key={idx} className="flex items-center gap-1.5 text-violet-500"><FiPhone size={12}/> {num}</span>
+                 ))}
               </div>
             </div>
           </div>
@@ -480,19 +521,67 @@ function SupplierDetailsModal({ supplier, onClose, onCreateOrder, onReceive }) {
 
 /* ─── Supplier modal ─── */
 function SupplierModal({ initial, onSave, onClose }) {
+  const { authFetch } = useAuth()
   const isEdit = !!initial?.id
-  const [form, setForm] = useState(initial ?? EMPTY)
+  const [form, setForm] = useState(() => {
+    if (initial) {
+      // If we have an initial supplier, we might need to map its current image to the images array
+      return {
+        ...initial,
+        images: initial.images?.map(img => img.url) || (initial.image_url ? [initial.image_url] : [])
+      }
+    }
+    return EMPTY
+  })
   const [errors, setErrors] = useState({})
+  const [isUploading, setIsUploading] = useState(false)
 
   const set = f => e => setForm(p => ({ ...p, [f]: e.target.value }))
+  
+  const updateNumber = (idx, val) => {
+    const newNumbers = [...form.numbers]
+    newNumbers[idx] = val
+    setForm(p => ({ ...p, numbers: newNumbers }))
+  }
+  const addNumber = () => setForm(p => ({ ...p, numbers: [...p.numbers, ""] }))
+  const removeNumber = (idx) => setForm(p => ({ ...p, numbers: p.numbers.filter((_, i) => i !== idx) }))
+
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files)
+    if (!files.length) return
+
+    const uploadFormData = new FormData()
+    files.forEach(file => uploadFormData.append('images', file))
+
+    setIsUploading(true)
+    try {
+      const response = await authFetch("/upload", { method: "POST", body: uploadFormData })
+      if (response.ok) {
+        const { urls } = await response.json()
+        setForm(prev => ({ ...prev, images: [...(prev.images || []), ...urls] }))
+      }
+    } catch (err) {
+      console.error("Upload failed", err)
+    } finally {
+      setIsUploading(false)
+      e.target.value = null
+    }
+  }
+
+  const removeImage = (idx) => {
+    setForm(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== idx)
+    }))
+  }
 
   function validate() {
     const e = {}
-    if (!form.name?.trim())    e.name    = "Required"
-    if (!form.number?.trim())  e.number  = "Required"
-    if (!form.email?.trim())   e.email   = "Required"
+    if (!form.name?.trim())      e.name    = "Required"
+    if (!form.numbers?.some(n => n.trim())) e.numbers = "At least one number is required"
+    if (!form.email?.trim())     e.email   = "Required"
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = "Invalid format"
-    if (!form.address?.trim()) e.address = "Required"
+    if (!form.address?.trim())   e.address = "Required"
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -502,19 +591,12 @@ function SupplierModal({ initial, onSave, onClose }) {
     if (validate()) onSave(form)
   }
 
-  const wrap = f => `flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all ${
-    errors[f]
+  const wrap = (f, hasError) => `flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all ${
+    hasError
       ? "border-rose-400 bg-rose-50 dark:bg-rose-950/20 shadow-inner"
       : "border-box-border dark:border-box-dark-border bg-slate-50 dark:bg-slate-950 focus-within:border-sky-500 focus-within:bg-white dark:focus-within:bg-slate-900 shadow-inner"
   }`
   const inp = "flex-1 bg-transparent text-sm text-slate-800 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700 font-bold outline-none"
-
-  const FIELDS = [
-    { f:"name",    label:"Organization Identity", Icon:FiTruck, placeholder:"e.g. Acme Logistics Group", type:"text"  },
-    { f:"number",  label:"Communication Line",    Icon:FiPhone, placeholder:"e.g. 023-400-5000",        type:"tel"   },
-    { f:"email",   label:"Terminal Email",        Icon:FiMail,  placeholder:"e.g. ops@acme.com",        type:"email" },
-    { f:"address", label:"Node Location",         Icon:FiMapPin,placeholder:"Industrial Zone, Building 4", type:"text"  },
-  ]
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md">
@@ -532,18 +614,88 @@ function SupplierModal({ initial, onSave, onClose }) {
         </div>
 
         {/* Body */}
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="max-h-[70vh] overflow-y-auto custom-scrollbar">
           <div className="px-8 py-7 flex flex-col gap-6 bg-white dark:bg-slate-900/20">
-            {FIELDS.map(({ f, label, Icon, placeholder, type }) => (
-              <div key={f}>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-1">{label}</label>
-                <div className={wrap(f)}>
-                  <Icon size={16} className="text-slate-300 dark:text-slate-600 shrink-0"/>
-                  <input type={type} value={form[f] || ""} onChange={set(f)} placeholder={placeholder} className={inp}/>
-                </div>
-                {errors[f] && <p className="text-[10px] font-black text-rose-500 mt-2 px-1 uppercase tracking-widest animate-pulse">{errors[f]}</p>}
+            
+            {/* Image Upload Area */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-1">Supplier Visuals</label>
+              <div className="flex flex-wrap gap-3">
+                {form.images?.map((url, idx) => (
+                  <div key={idx} className="relative w-20 h-20 group">
+                    <img src={url} className="w-full h-full object-cover rounded-2xl border border-black/5 dark:border-white/10" alt="" />
+                    <button 
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <FiX size={12} />
+                    </button>
+                  </div>
+                ))}
+                
+                <label className={`w-20 h-20 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1 cursor-pointer transition-all
+                  ${isUploading ? 'border-sky-400 bg-sky-50/30' : 'border-slate-200 dark:border-slate-800 hover:border-sky-400 hover:bg-sky-50/30'}`}>
+                  {isUploading ? (
+                    <FiLoader className="text-sky-500 animate-spin" size={20} />
+                  ) : (
+                    <>
+                      <FiUploadCloud className="text-slate-400" size={20} />
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Upload</span>
+                    </>
+                  )}
+                  <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+                </label>
               </div>
-            ))}
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-1">Organization Identity</label>
+              <div className={wrap("name", errors.name)}>
+                <FiTruck size={16} className="text-slate-300 dark:text-slate-600 shrink-0"/>
+                <input type="text" value={form.name || ""} onChange={set("name")} placeholder="e.g. Acme Logistics Group" className={inp}/>
+              </div>
+              {errors.name && <p className="text-[10px] font-black text-rose-500 mt-2 px-1 uppercase tracking-widest animate-pulse">{errors.name}</p>}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2 px-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Communication Lines</label>
+                <button type="button" onClick={addNumber} className="text-[10px] font-black text-sky-500 uppercase tracking-widest flex items-center gap-1 hover:text-sky-600"><FiPlusCircle size={14}/> Add</button>
+              </div>
+              <div className="space-y-3">
+                {form.numbers.map((num, idx) => (
+                  <div key={idx} className="flex flex-col gap-1">
+                    <div className={wrap("numbers", false)}>
+                      <FiPhone size={16} className="text-slate-300 dark:text-slate-600 shrink-0"/>
+                      <input type="tel" value={num} onChange={e => updateNumber(idx, e.target.value)} placeholder="e.g. 023-400-5000" className={inp}/>
+                      {form.numbers.length > 1 && (
+                        <button type="button" onClick={() => removeNumber(idx)} className="text-rose-400 hover:text-rose-600 p-1"><FiMinusCircle size={16}/></button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {errors.numbers && <p className="text-[10px] font-black text-rose-500 mt-2 px-1 uppercase tracking-widest animate-pulse">{errors.numbers}</p>}
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-1">Terminal Email</label>
+              <div className={wrap("email", errors.email)}>
+                <FiMail size={16} className="text-slate-300 dark:text-slate-600 shrink-0"/>
+                <input type="email" value={form.email || ""} onChange={set("email")} placeholder="e.g. ops@acme.com" className={inp}/>
+              </div>
+              {errors.email && <p className="text-[10px] font-black text-rose-500 mt-2 px-1 uppercase tracking-widest animate-pulse">{errors.email}</p>}
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-1">Node Location</label>
+              <div className={wrap("address", errors.address)}>
+                <FiMapPin size={16} className="text-slate-300 dark:text-slate-600 shrink-0"/>
+                <input type="text" value={form.address || ""} onChange={set("address")} placeholder="Industrial Zone, Building 4" className={inp}/>
+              </div>
+              {errors.address && <p className="text-[10px] font-black text-rose-500 mt-2 px-1 uppercase tracking-widest animate-pulse">{errors.address}</p>}
+            </div>
           </div>
 
           {/* Footer */}
@@ -612,7 +764,7 @@ export default function Suppliers() {
       .filter(s =>
         s.name.toLowerCase().includes(q) ||
         s.email.toLowerCase().includes(q) ||
-        s.number.includes(q) ||
+        s.numbers.some(n => n.includes(q)) ||
         s.address.toLowerCase().includes(q)
       )
       .sort((a, b) => {
@@ -691,11 +843,11 @@ export default function Suppliers() {
         <div className="flex items-center justify-between bg-box-bg dark:bg-box-dark-bg p-6 rounded-[2rem] border border-box-border dark:border-box-dark-border shadow-sm">
           <div>
             <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tighter uppercase">Suppliers Node</h1>
-            <p className="text-[10px] text-slate-400 mt-1 font-black uppercase tracking-[0.3em]">Supply Chain Infrastructure Management</p>
+            <p className="text-[10px] text-slate-400 dark:text-slate-300 mt-1 font-black uppercase tracking-[0.3em]">Supply Chain Infrastructure Management</p>
           </div>
           <div className="flex items-center gap-4">
              <div className="text-right hidden md:block">
-                <p className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase tracking-tighter">{user?.name || "System"}</p>
+                <p className="text-sm font-black text-slate-700 dark:text-slate-100 uppercase tracking-tighter">{user?.name || "System"}</p>
                 <p className="text-[9px] font-black text-sky-500 uppercase tracking-[0.2em]">{user?.role} Access</p>
              </div>
              <button onClick={() => setModal({ mode:"add" })}
@@ -749,25 +901,37 @@ export default function Suppliers() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40">
-                  {filtered.length === 0 ? (
-                    <tr><td colSpan={5} className="py-24 text-center text-sm font-black text-slate-300 dark:text-slate-700 uppercase tracking-widest italic">Node matrix isolation: 0 entities found</td></tr>
-                  ) : filtered.map(s => (
-                    <tr key={s.id} 
-                      onClick={() => setViewTarget(s)}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all group cursor-pointer"
-                    >
+                  {suppliers.length === 0 ? (
+                   <tr><td colSpan={5} className="py-24 text-center text-sm font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest italic">Node matrix isolation: 0 entities found</td></tr>
+                  ) : (
+                    filtered.map(s => (
+                      <tr key={s.id} 
+                        onClick={() => setViewTarget(s)}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all group cursor-pointer"
+                      >
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
-                          <span className={`w-12 h-12 rounded-2xl ${avatarColor(s.id)} flex items-center justify-center text-white text-[10px] font-black shrink-0 shadow-lg border-2 border-white/20`}>
-                            {initials(s.name)}
-                          </span>
+                          {s.image_url ? (
+                             <img 
+                               src={s.image_url} 
+                               alt={s.name} 
+                               className="w-12 h-12 rounded-2xl object-cover shadow-lg border-2 border-white/20"
+                             />
+                          ) : (
+                            <span className={`w-12 h-12 rounded-2xl ${avatarColor(s.id)} flex items-center justify-center text-white text-[10px] font-black shrink-0 shadow-lg border-2 border-white/20`}>
+                              {initials(s.name)}
+                            </span>
+                          )}
                           <div className="min-w-0">
                              <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tighter truncate">{s.name}</p>
                              <p className="text-[10px] font-bold text-slate-400 truncate">{s.email}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-5 text-xs text-slate-500 dark:text-slate-400 font-black tracking-tighter whitespace-nowrap">{s.number}</td>
+                      <td className="px-6 py-5 text-xs text-slate-500 dark:text-slate-400 font-black tracking-tighter whitespace-nowrap">
+                        {s.numbers?.[0] || "—"}
+                        {s.numbers?.length > 1 && <span className="ml-1 text-[8px] text-sky-500 font-black">+{s.numbers.length - 1} MORE</span>}
+                      </td>
                       <td className="px-6 py-5 text-xs text-slate-500 dark:text-slate-400 max-w-[220px] truncate font-medium">{s.address}</td>
                       <td className="px-6 py-5">
                         <span className="inline-flex items-center justify-center w-10 h-7 rounded-xl text-xs font-black
@@ -788,8 +952,8 @@ export default function Suppliers() {
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
+                    )))}
+                    </tbody>
               </table>
             )}
           </div>
@@ -815,6 +979,7 @@ export default function Suppliers() {
             onClose={() => setViewTarget(null)} 
             onCreateOrder={() => setPoTarget(viewTarget)}
             onReceive={(p) => setReceiveTarget(p)}
+            onUpdate={fetchInitialData}
           />
         )}
 

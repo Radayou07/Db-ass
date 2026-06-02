@@ -14,6 +14,9 @@ class Employee(db.Model):
     role          = db.Column(db.Enum("admin", "staff"), nullable=False, default="staff")
     description   = db.Column(db.Text, nullable=True)
 
+    # Relationships
+    images = db.relationship("EmployeeImage", backref="employee", cascade="all, delete-orphan", lazy=True)
+
     def set_password(self, password: str):
         self.password_hash = generate_password_hash(password)
 
@@ -21,6 +24,13 @@ class Employee(db.Model):
         return check_password_hash(self.password_hash, password)
 
     def to_dict(self):
+        primary_image = next((img.url for img in self.images if img.is_primary), None)
+        if not primary_image and self.images:
+            primary_image = self.images[0].url
+            
+        if primary_image:
+            primary_image = primary_image.replace(":5000/", ":5001/")
+
         return {
             "id":    self.id,
             "name":  self.name,
@@ -28,6 +38,25 @@ class Employee(db.Model):
             "email": self.email,
             "role":  self.role,
             "description": self.description,
+            "image_url": primary_image
+        }
+
+
+class EmployeeImage(db.Model):
+    __tablename__ = "employee_image"
+
+    id          = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
+    url         = db.Column(db.String(255), nullable=False)
+    is_primary  = db.Column(db.Boolean, nullable=False, default=False)
+    uploaded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "url": self.url.replace(":5000/", ":5001/"),
+            "is_primary": self.is_primary,
+            "uploaded_at": self.uploaded_at.isoformat()
         }
 
 
@@ -72,10 +101,12 @@ class Product(db.Model):
     expire      = db.Column(db.Date, nullable=True)
     category_id = db.Column(db.Integer, db.ForeignKey("category.id"), nullable=False)
     uom_id      = db.Column(db.Integer, db.ForeignKey("unit_of_measure.id"), nullable=True)
+    supplier_id = db.Column(db.Integer, db.ForeignKey("supplier.id"), nullable=True)
 
     # Relationships
     category = db.relationship("Category", backref=db.backref("products", lazy=True))
     uom      = db.relationship("UnitOfMeasure", backref=db.backref("products", lazy=True))
+    supplier = db.relationship("Supplier", backref=db.backref("products", lazy=True))
     images   = db.relationship("ProductImage", backref="product", cascade="all, delete-orphan", lazy=True)
 
     def to_dict(self):
@@ -89,7 +120,9 @@ class Product(db.Model):
             "category_id": self.category_id,
             "uom_id": self.uom_id,
             "uom_name": self.uom.name if self.uom else None,
-            "uom_abbreviation": self.uom.abbreviation if self.uom else None
+            "uom_abbreviation": self.uom.abbreviation if self.uom else None,
+            "supplier_id": self.supplier_id,
+            "supplier_name": self.supplier.name if self.supplier else "No Supplier"
         }
 
 
@@ -105,7 +138,7 @@ class ProductImage(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
-            "url": self.url,
+            "url": self.url.replace(":5000/", ":5001/"),
             "is_primary": self.is_primary,
             "uploaded_at": self.uploaded_at.isoformat()
         }
@@ -162,6 +195,9 @@ class Customer(db.Model):
     address       = db.Column(db.String(255), nullable=False)
     description   = db.Column(db.Text, nullable=True)
 
+    # Relationships
+    images = db.relationship("CustomerImage", backref="customer", cascade="all, delete-orphan", lazy=True)
+
     def set_password(self, password: str):
         self.password_hash = generate_password_hash(password)
 
@@ -170,6 +206,13 @@ class Customer(db.Model):
         return check_password_hash(self.password_hash, password)
 
     def to_dict(self):
+        primary_image = next((img.url for img in self.images if img.is_primary), None)
+        if not primary_image and self.images:
+            primary_image = self.images[0].url
+
+        if primary_image:
+            primary_image = primary_image.replace(":5000/", ":5001/")
+
         return {
             "id": self.id,
             "name": self.name,
@@ -177,7 +220,26 @@ class Customer(db.Model):
             "email": self.email,
             "address": self.address,
             "description": self.description,
-            "role": "customer"
+            "role": "customer",
+            "image_url": primary_image
+        }
+
+
+class CustomerImage(db.Model):
+    __tablename__ = "customer_image"
+
+    id          = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
+    url         = db.Column(db.String(255), nullable=False)
+    is_primary  = db.Column(db.Boolean, nullable=False, default=False)
+    uploaded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "url": self.url.replace(":5000/", ":5001/"),
+            "is_primary": self.is_primary,
+            "uploaded_at": self.uploaded_at.isoformat()
         }
 
 
@@ -186,17 +248,61 @@ class Supplier(db.Model):
 
     id      = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name    = db.Column(db.String(100), nullable=False)
-    number  = db.Column(db.String(45), nullable=False, unique=True)
     email   = db.Column(db.String(100), nullable=False, unique=True)
     address = db.Column(db.String(255), nullable=False)
+
+    # Relationships
+    numbers = db.relationship("SupplierNumber", backref="supplier", cascade="all, delete-orphan", lazy=True)
+    images  = db.relationship("SupplierImage", backref="supplier", cascade="all, delete-orphan", lazy=True)
+
+    def to_dict(self):
+        primary_image = next((img.url for img in self.images if img.is_primary), None)
+        if not primary_image and self.images:
+            primary_image = self.images[0].url
+
+        if primary_image:
+            primary_image = primary_image.replace(":5000/", ":5001/")
+
+        return {
+            "id": self.id,
+            "name": self.name,
+            "numbers": [n.number for n in self.numbers],
+            "email": self.email,
+            "address": self.address,
+            "image_url": primary_image,
+            "images": [img.to_dict() for img in self.images]
+        }
+
+
+class SupplierNumber(db.Model):
+    __tablename__ = "supplier_number"
+
+    id          = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    supplier_id = db.Column(db.Integer, db.ForeignKey("supplier.id"), nullable=False)
+    number      = db.Column(db.String(45), nullable=False, unique=True)
 
     def to_dict(self):
         return {
             "id": self.id,
-            "name": self.name,
-            "number": self.number,
-            "email": self.email,
-            "address": self.address
+            "number": self.number
+        }
+
+
+class SupplierImage(db.Model):
+    __tablename__ = "supplier_image"
+
+    id          = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    supplier_id = db.Column(db.Integer, db.ForeignKey("supplier.id"), nullable=False)
+    url         = db.Column(db.String(255), nullable=False)
+    is_primary  = db.Column(db.Boolean, nullable=False, default=False)
+    uploaded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "url": self.url.replace(":5000/", ":5001/"),
+            "is_primary": self.is_primary,
+            "uploaded_at": self.uploaded_at.isoformat()
         }
 
 

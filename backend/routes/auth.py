@@ -1,4 +1,7 @@
-from flask import Blueprint, request, jsonify
+import os
+import uuid
+from flask import Blueprint, request, jsonify, current_app
+from werkzeug.utils import secure_filename
 from flask_jwt_extended import (
     create_access_token,
     jwt_required,
@@ -6,9 +9,15 @@ from flask_jwt_extended import (
     get_jwt,
 )
 from extensions import db
-from models import Employee, Customer
+from models import Employee, Customer, EmployeeImage, CustomerImage, Orders, Purchase, PaymentCustomer, PaymentSupplier
 
 auth_bp = Blueprint("auth", __name__)
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 # ─────────────────────────────────────────
@@ -177,6 +186,13 @@ def delete_staff(id):
     if not staff:
         return jsonify({"error": "Staff member not found"}), 404
 
+    # Check for transaction history processed by this staff member
+    if (Orders.query.filter_by(employee_id=id).first() or 
+        Purchase.query.filter_by(employee_id=id).first() or
+        PaymentCustomer.query.filter_by(employee_id=id).first() or
+        PaymentSupplier.query.filter_by(employee_id=id).first()):
+        return jsonify({"error": "Cannot delete staff member with recorded transaction history. Deactivate their account instead."}), 400
+
     db.session.delete(staff)
     db.session.commit()
     return jsonify({"message": "Staff member removed"}), 200
@@ -230,3 +246,53 @@ def update_profile():
         
     db.session.commit()
     return jsonify({"message": "Profile updated successfully", "user": user.to_dict()}), 200
+
+
+@auth_bp.route("/profile/image", methods=["POST"])
+@jwt_required()
+def update_profile_image():
+    user_id = get_jwt_identity()
+    claims = get_jwt()
+    role = claims.get("role")
+
+    if 'image' not in request.files:
+        return jsonify({"error": "No image part"}), 400
+
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    if file and allowed_file(file.filename):
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        filename = secure_filename(f"profile_{role}_{user_id}_{uuid.uuid4().hex}.{ext}")
+
+        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads')
+        os.makedirs(upload_folder, exist_ok=True)
+
+        file_path = os.path.join(upload_folder, filename)
+        file.save(file_path)
+
+        url = f"http://localhost:5001/static/uploads/{filename}"
+
+        if role in ["admin", "staff"]:
+            # Set all other images to not primary
+            EmployeeImage.query.filter_by(employee_id=user_id).update({"is_primary": False})
+            new_img = EmployeeImage(employee_id=user_id, url=url, is_primary=True)
+            db.session.add(new_img)
+        else:
+            # Set all other images to not primary
+            CustomerImage.query.filter_by(customer_id=user_id).update({"is_primary": False})
+            new_img = CustomerImage(customer_id=user_id, url=url, is_primary=True)
+            db.session.add(new_img)
+
+        db.session.commit()
+
+        # Fetch updated user to return
+        if role in ["admin", "staff"]:
+            user = Employee.query.get(user_id)
+        else:
+            user = Customer.query.get(user_id)
+
+        return jsonify({"message": "Profile image updated", "user": user.to_dict()}), 200
+
+    return jsonify({"error": "Invalid file type"}), 400
