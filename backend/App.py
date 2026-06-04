@@ -43,6 +43,10 @@ def create_app():
     app.register_blueprint(wishlist_bp, url_prefix="/api/wishlist")
     app.register_blueprint(cart_bp, url_prefix="/api/cart")
 
+    @app.route("/")
+    def index():
+        return {"message": "Inventory API is running", "status": "success"}
+
     return app
 
 app = create_app()
