@@ -1,22 +1,92 @@
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
+import { useToast } from "../context/ToastContext"
 import { 
   FiArrowLeft, FiPackage, FiTag, FiDollarSign, FiArchive, 
   FiActivity, FiCalendar, FiShoppingCart, FiHome, FiCheck, 
   FiCreditCard, FiInfo, FiTruck, FiShield, FiRotateCcw,
-  FiChevronLeft, FiChevronRight
+  FiChevronLeft, FiChevronRight, FiPlusCircle, FiMinusCircle, FiX
 } from "react-icons/fi"
+
+/* ─── Add to Cart Modal (Same as Products page for consistency) ─── */
+function AddToCartModal({ product, onConfirm, onClose }) {
+  const [qty, setQty] = useState(1)
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div className="bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 w-full max-w-sm rounded-[2.5rem] p-7 shadow-2xl">
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="font-black flex items-center gap-2 uppercase tracking-widest text-sm text-slate-800 dark:text-white"><FiShoppingCart className="text-sky-500" /> Add to Cart</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-2 bg-slate-50 dark:bg-slate-800 rounded-xl"><FiX size={20} /></button>
+        </div>
+
+        <div className="flex gap-5 mb-8 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-black/5 dark:border-white/5">
+          <div className="w-16 h-16 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden border border-black/5 dark:border-white/5 shadow-sm shrink-0">
+             {product.images?.[0] ? <img src={product.images[0].url} className="w-full h-full object-cover"/> : <FiPackage className="text-slate-300" size={24}/>}
+          </div>
+          <div className="min-w-0">
+            <p className="font-bold text-sm truncate text-slate-800 dark:text-white">{product.name}</p>
+            <p className="text-sky-500 font-black text-lg mt-0.5">${Number(product.sale_price || product.price).toFixed(2)}</p>
+            <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">Stock: {product.stock}</p>
+          </div>
+        </div>
+
+        <div className="space-y-8">
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-1 text-center">Select Quantity</label>
+            <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/50 p-2 rounded-[2rem] border border-black/5 dark:border-white/5 shadow-inner">
+               <button 
+                 type="button" 
+                 onClick={()=>setQty(Math.max(1, qty-1))} 
+                 className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm border border-black/5 dark:border-white/5 active:scale-90"
+               >
+                  <FiMinusCircle className="text-slate-400" size={18}/>
+               </button>
+               
+               <div className="flex flex-col items-center">
+                  <input type="number" readOnly value={qty} className="w-16 text-center bg-transparent font-black text-2xl outline-none text-slate-800 dark:text-white" />
+                  <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">{product.uom_abbreviation || 'Units'}</span>
+               </div>
+
+               <button 
+                 type="button" 
+                 onClick={()=>setQty(Math.min(product.stock, qty+1))} 
+                 className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm border border-black/5 dark:border-white/5 active:scale-90"
+               >
+                  <FiPlusCircle className="text-sky-500" size={18}/>
+               </button>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-800 pt-6 px-1">
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Price</p>
+             <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">${((product.sale_price || product.price) * qty).toFixed(2)}</p>
+          </div>
+
+          <button 
+            onClick={() => onConfirm(qty)}
+            className="w-full py-4 rounded-2xl bg-sky-500 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-sky-200 dark:shadow-none hover:bg-sky-600 transition-all flex items-center justify-center gap-2 active:scale-95"
+          >
+            Confirm & Add to Cart
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function ProductDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user, authFetch } = useAuth()
+  const { toast } = useToast()
   
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeImage, setActiveImage] = useState(0)
+  const [showCartModal, setShowCartModal] = useState(false)
   
   const isInternal = user?.role === "admin" || user?.role === "staff"
 
@@ -40,6 +110,25 @@ export default function ProductDetail() {
     }
   }
 
+  const handleAddToCart = async (qty) => {
+    try {
+      const res = await authFetch(`/cart/${product.id}`, {
+        method: "POST",
+        body: JSON.stringify({ quantity: qty })
+      })
+      if (res.ok) {
+        window.dispatchEvent(new Event("cart_updated"))
+        toast(`${product.name} added to cart!`)
+        setShowCartModal(false)
+      } else {
+        const err = await res.json()
+        toast(err.error || "Failed to add to cart", "error")
+      }
+    } catch (err) {
+      toast("Network error", "error")
+    }
+  }
+
   if (loading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center text-center bg-main-bg dark:bg-main-dark-bg">
@@ -55,7 +144,7 @@ export default function ProductDetail() {
         <FiPackage className="w-20 h-20 text-slate-200 dark:text-slate-600 mb-6" />
         <h2 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tighter">{error || "Entity Missing"}</h2>
         <button 
-          onClick={() => navigate("/products")}
+          onClick={() => navigate(isInternal ? "/staff/products" : "/customer/products")}
           className="mt-8 px-8 py-3 rounded-2xl bg-sky-500 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-sky-200 dark:shadow-none transition-all"
         >
           Return to Catalog
@@ -83,10 +172,10 @@ export default function ProductDetail() {
         {/* Navigation / Header */}
         <div className="flex items-center justify-between">
           <button 
-            onClick={() => navigate("/products")}
+            onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-slate-500 hover:text-sky-500 transition-colors font-black uppercase tracking-widest text-[10px]"
           >
-            <FiArrowLeft size={18} /> Back to Catalog
+            <FiArrowLeft size={18} /> Back
           </button>
           <div className="flex items-center gap-3">
              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ref: #{product.id.toString().padStart(5, '0')}</span>
@@ -190,13 +279,17 @@ export default function ProductDetail() {
                 <div>
                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-1">Market Price</p>
                    <p className="text-5xl font-black text-slate-900 dark:text-white flex items-start gap-1">
-                      <span className="text-2xl mt-1.5 text-sky-500">$</span>{Number(product.price).toFixed(2)}
+                      <span className="text-2xl mt-1.5 text-sky-500">$</span>{Number(product.sale_price || product.price).toFixed(2)}
                    </p>
+                   {product.has_discount && (
+                     <p className="text-xs text-slate-400 line-through font-bold mt-1">Was ${Number(product.price).toFixed(2)}</p>
+                   )}
                 </div>
                 
                 <div className="flex gap-3">
                    {!isInternal ? (
                      <button 
+                       onClick={() => setShowCartModal(true)}
                        disabled={product.stock <= 0}
                        className={`flex-1 sm:flex-none px-10 py-5 rounded-[2rem] flex items-center justify-center gap-3 text-sm font-black uppercase tracking-widest transition-all
                          ${product.stock > 0 
@@ -207,7 +300,7 @@ export default function ProductDetail() {
                      </button>
                    ) : (
                      <button 
-                       onClick={() => navigate(`/products`, { state: { edit: product } })}
+                       onClick={() => navigate(`/staff/products`, { state: { edit: product } })}
                        className="flex-1 sm:flex-none px-10 py-5 rounded-[2rem] bg-slate-900 dark:bg-slate-800 text-white font-black uppercase tracking-widest text-xs hover:bg-black transition-all active:scale-95"
                      >
                         Update Entity
@@ -240,6 +333,14 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      {showCartModal && (
+        <AddToCartModal 
+          product={product} 
+          onClose={() => setShowCartModal(false)} 
+          onConfirm={handleAddToCart}
+        />
+      )}
     </div>
   )
 }

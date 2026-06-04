@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { FiSearch, FiPhoneCall, FiUser, FiHeart, FiShoppingCart, FiChevronDown, FiMenu, FiLogOut } from 'react-icons/fi'
+import { FiSearch, FiPhoneCall, FiUser, FiHeart, FiShoppingCart, FiChevronDown, FiMenu, FiLogOut, FiSun, FiMoon } from 'react-icons/fi'
 
 export default function Header({ isDark, setIsDark }) {
   const { user, logout, authFetch } = useAuth()
@@ -48,7 +48,7 @@ export default function Header({ isDark, setIsDark }) {
   }
 
   return (
-    <header className="flex flex-col w-full bg-white dark:bg-slate-900 border-b border-black/5 dark:border-white/5">
+    <header className="flex flex-col w-full bg-white dark:bg-slate-900 border-b border-black/5 dark:border-white/5 transition-colors duration-300">
       
       {/* ─── TOP BAR ─── */}
       <div className="w-full bg-slate-900 dark:bg-black text-slate-300 dark:text-slate-400 py-1.5 px-6 flex items-center justify-between text-[10px] uppercase font-bold tracking-widest hidden md:flex">
@@ -59,12 +59,16 @@ export default function Header({ isDark, setIsDark }) {
           <Link to="/customer/orders" className="hover:text-white transition-colors">Track Order</Link>
           <span className="hover:text-white transition-colors cursor-pointer">About</span>
           <span className="hover:text-white transition-colors cursor-pointer">Contact</span>
-          <span className="hover:text-white transition-colors cursor-pointer">Help & FAQs</span>
+          <span className="hover:text-white transition-colors cursor-pointer border-r border-slate-700 pr-4">Help & FAQs</span>
+          
+          {/* Theme Toggle Button */}
           <button 
             onClick={() => setIsDark(!isDark)}
-            className="ml-2 hover:text-white transition-colors border-l border-slate-700 pl-4"
+            className="flex items-center gap-2 text-white hover:text-sky-400 transition-colors"
+            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
-            {isDark ? 'Light Mode' : 'Dark Mode'}
+            {isDark ? <FiSun size={14} className="text-amber-400" /> : <FiMoon size={14} />}
+            <span className="text-[9px]">{isDark ? 'LIGHT' : 'DARK'}</span>
           </button>
         </div>
       </div>
@@ -134,8 +138,8 @@ export default function Header({ isDark, setIsDark }) {
               </div>
               <span className="text-[9px] font-bold uppercase tracking-widest hidden md:block">Cart</span>
             </Link>
-            <button onClick={() => { logout(); navigate('/login'); }} className="flex flex-col items-center gap-1 hover:text-rose-500 transition-colors">
-              <FiLogOut size={24} />
+            <button onClick={() => { logout(); navigate('/login'); }} className="flex flex-col items-center gap-1 hover:text-rose-500 transition-colors group">
+              <FiLogOut size={24} className="group-hover:translate-x-0.5 transition-transform" />
               <span className="text-[9px] font-bold uppercase tracking-widest hidden md:block">Logout</span>
             </button>
           </div>
