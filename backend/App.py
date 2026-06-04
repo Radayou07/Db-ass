@@ -19,11 +19,18 @@ from routes.cart import cart_bp
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
-
-    # Allow origins from environment variable or default to localhost
-    allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174").split(",")
     
-    CORS(app, resources={r"/api/*": {"origins": allowed_origins}}, supports_credentials=True)
+    # Disable strict slashes globally to prevent 405 on trailing slash redirects
+    app.url_map.strict_slashes = False
+
+    # Allow origins from environment variable or default to local development ports
+    # In production, this should include your frontend's Render URL
+    allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+    if "*" in allowed_origins:
+        allowed_origins = "*"
+
+    CORS(app, resources={r"/*": {"origins": allowed_origins}}, supports_credentials=True)
+    
     db.init_app(app)
     jwt.init_app(app)
 
