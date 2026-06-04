@@ -57,7 +57,7 @@ function App() {
             <Route 
               path="/" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['admin', 'staff']}>
                   <AppLayout isDark={isDark} setIsDark={setIsDark} />
                 </ProtectedRoute>
               }

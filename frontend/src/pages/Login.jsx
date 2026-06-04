@@ -19,8 +19,15 @@ export default function Login() {
     setError("")
     setLoading(true)
     try {
-      await login(email, password)
-      navigate("/")
+      const user = await login(email, password)
+      
+      // If customer, redirect to the external customer site
+      if (user.role === "customer") {
+        const customerUrl = import.meta.env.VITE_CUSTOMER_URL || "https://your-customer-site.onrender.com"
+        window.location.href = customerUrl
+      } else {
+        navigate("/")
+      }
     } catch (err) {
       setError(err.message || "Invalid email or password")
     } finally {

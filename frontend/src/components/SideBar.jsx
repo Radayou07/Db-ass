@@ -5,7 +5,7 @@ import { MdShoppingCart, MdAnalytics, MdInventory2 } from "react-icons/md"
 import { GiShoppingBag } from "react-icons/gi"
 import { FaHandsHelping } from "react-icons/fa"
 import { RiMenuFoldLine, RiMenuUnfoldLine } from "react-icons/ri"
-import { FiLogOut, FiShield, FiUser, FiTag } from "react-icons/fi"
+import { FiLogOut, FiShield, FiUser, FiTag, FiExternalLink } from "react-icons/fi"
 import { BsBoxSeam } from "react-icons/bs"
 import DarkMode from "./DarkMode"
 import { useAuth } from "../context/AuthContext"
@@ -19,12 +19,6 @@ const ADMIN_NAV = [
   { to: "/suppliers",  Icon: FaHandsHelping, label: "Suppliers" },
   { to: "/discounts",  Icon: FiTag,          label: "Discounts" },
   { to: "/analysis",  Icon: MdAnalytics,    label: "Analysis" },
-]
-
-const CUSTOMER_NAV = [
-  { to: "/",          Icon: IoMdHome,       label: "Home" },
-  { to: "/products",   Icon: MdShoppingCart, label: "Storefront" },
-  { to: "/orders",     Icon: GiShoppingBag,  label: "My Orders" },
 ]
 
 // Get initials from a name e.g. "John Doe" → "JD"
@@ -43,13 +37,15 @@ export default function SideBar({ isDark, setIsDark }) {
     navigate("/login")
   }
 
-  // Dynamic nav selection
-  const isCustomer = user?.role === "customer"
-  let menu = isCustomer ? [...CUSTOMER_NAV] : [...ADMIN_NAV]
+  // Admin menu selection
+  let menu = [...ADMIN_NAV]
   
   if (isAdmin) {
     menu.push({ to: "/staff", Icon: FiShield, label: "Staff" })
   }
+
+  // External link to Customer Frontend
+  const customerUrl = import.meta.env.VITE_CUSTOMER_URL
 
   return (
     <aside
@@ -124,6 +120,28 @@ export default function SideBar({ isDark, setIsDark }) {
             </Link>
           )
         })}
+
+        {/* Customer Site Link */}
+        {customerUrl && (
+          <a
+            href={customerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={!isOpen ? "Customer Site" : undefined}
+            className="relative flex items-center gap-3 px-3 py-2.5 rounded-xl
+                       text-sm font-medium whitespace-nowrap text-side-text
+                       hover:bg-slate-100 dark:hover:bg-white/[.06] hover:text-slate-900 dark:hover:text-white
+                       transition-colors duration-150 group mt-4 border-t border-slate-200 dark:border-white/5 pt-4"
+          >
+            <FiExternalLink className="shrink-0 w-5 h-5 text-slate-400 group-hover:text-side-icon" />
+            <span className={`
+              overflow-hidden transition-[max-width,opacity] duration-300 ease-in-out
+              ${isOpen ? "max-w-xs opacity-100" : "max-w-0 opacity-0"}
+            `}>
+              Customer Site
+            </span>
+          </a>
+        )}
       </nav>
 
       {/* ── User info + logout ── */}
@@ -163,9 +181,7 @@ export default function SideBar({ isDark, setIsDark }) {
               text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase
               ${isAdmin
                 ? "bg-sky-500/20 text-sky-500"
-                : isCustomer 
-                  ? "bg-emerald-500/20 text-emerald-500"
-                  : "bg-slate-500/20 text-slate-500"
+                : "bg-slate-500/20 text-slate-500"
               }
             `}>
               {user?.role || "staff"}
