@@ -22,95 +22,153 @@ function ProductCard({ product, onEdit, onDelete, onBuy, isInternal }) {
     setActiveImage((prev) => (prev - 1 + images.length) % images.length)
   }
 
-  return (
-    <div 
-      onClick={() => navigate(`/products/${product.id}`)}
-      className="bg-box-bg dark:bg-box-dark-bg rounded-xl border border-box-border dark:border-box-dark-border p-3 hover:shadow-md transition-all duration-300 flex flex-col h-full group cursor-pointer active:scale-95"
-    >
-      <div className="flex gap-3 flex-1">
-        <div className="w-20 h-20 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden border border-black/5 dark:border-white/5 relative group/img">
-          {images[activeImage]?.url ? (
-            <img src={images[activeImage].url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-          ) : (
-            <FiPackage className="w-6 h-6 text-slate-300 dark:text-slate-600" />
-          )}
+  // If internal, render a compact horizontal card (admin style)
+  // If customer, render a large vertical e-commerce style card
+  if (isInternal) {
+    return (
+      <div 
+        onClick={() => navigate(`/products/${product.id}`)}
+        className="bg-box-bg dark:bg-box-dark-bg rounded-xl border border-box-border dark:border-box-dark-border p-3 hover:shadow-md transition-all duration-300 flex flex-col h-full group cursor-pointer active:scale-95"
+      >
+        <div className="flex gap-3 flex-1">
+          <div className="w-20 h-20 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden border border-black/5 dark:border-white/5 relative group/img">
+            {images[activeImage]?.url ? (
+              <img src={images[activeImage].url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+            ) : (
+              <FiPackage className="w-6 h-6 text-slate-300 dark:text-slate-600" />
+            )}
 
-          {/* Mini Switcher Indicators */}
-          {images.length > 1 && (
-            <>
-              <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1.5 px-2 py-1 bg-black/40 backdrop-blur-md rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity z-10">
-                {images.map((_, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`h-1.5 rounded-full transition-all ${activeImage === idx ? 'w-3 bg-sky-400' : 'w-1.5 bg-white/40'}`}
-                  />
-                ))}
+            {/* Mini Switcher Indicators */}
+            {images.length > 1 && (
+              <>
+                <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1.5 px-2 py-1 bg-black/40 backdrop-blur-md rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity z-10">
+                  {images.map((_, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`h-1.5 rounded-full transition-all ${activeImage === idx ? 'w-3 bg-sky-400' : 'w-1.5 bg-white/40'}`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-bold text-slate-800 dark:text-white truncate text-sm">{product.name}</h3>
+                <p className="text-[10px] text-slate-500 dark:text-slate-300 mt-0.5 truncate">{product.description || "No description"}</p>
               </div>
               
-              <button 
-                onClick={prevImage}
-                className="absolute left-1 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center text-slate-900 dark:text-white opacity-0 group-hover/img:opacity-100 transition-all hover:bg-white shadow-md z-20 font-black text-xs"
-              >
-                &lt;
-              </button>
-              <button 
-                onClick={nextImage}
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center text-slate-900 dark:text-white opacity-0 group-hover/img:opacity-100 transition-all hover:bg-white shadow-md z-20 font-black text-xs"
-              >
-                &gt;
-              </button>
-            </>
-          )}
-        </div>
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="font-bold text-slate-800 dark:text-white truncate text-sm">{product.name}</h3>
-              <p className="text-[10px] text-slate-500 dark:text-slate-300 mt-0.5 truncate">{product.description || "No description"}</p>
-            </div>
-            
-            {isInternal && (
               <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                 <button onClick={() => onEdit(product)} className="p-1.5 rounded-lg text-slate-400 dark:text-slate-300 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"><FiEdit2 size={12} /></button>
                 <button onClick={() => onDelete(product)} className="p-1.5 rounded-lg text-slate-400 dark:text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"><FiTrash2 size={12} /></button>
               </div>
-            )}
-          </div>
-          
-          <div className="flex items-center justify-between mt-3">
-            <span className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-300 font-bold uppercase tracking-wider">
-              <FiTag size={10} className="text-sky-500" />
-              {product.category_name || "Misc"}
-            </span>
-            <span className="text-xs font-black text-slate-800 dark:text-white">
-              ${Number(product.price).toFixed(2)}
-            </span>
+            </div>
+            
+            <div className="flex items-center justify-between mt-3">
+              <span className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-300 font-bold uppercase tracking-wider">
+                <FiTag size={10} className="text-sky-500" />
+                {product.category_name || "Misc"}
+              </span>
+              <span className="text-xs font-black text-slate-800 dark:text-white">
+                ${Number(product.price).toFixed(2)}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mt-3 pt-2 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between" onClick={e => e.stopPropagation()}>
-        {!isInternal ? (
-          <button 
-            onClick={() => onBuy(product)}
-            disabled={product.stock <= 0}
-            className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all
-              ${product.stock > 0 
-                ? "bg-sky-500 hover:bg-sky-600 text-white shadow-sm" 
-                : "bg-slate-50 dark:bg-slate-800 text-slate-400 cursor-not-allowed"}`}
-          >
-            <FiShoppingCart size={12} />
-            {product.stock > 0 ? "Order" : "Out"}
-          </button>
-        ) : (
+        <div className="mt-3 pt-2 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between w-full">
             <span className={`text-[9px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded-md ${product.stock > 0 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' : 'bg-rose-50 text-rose-600 dark:bg-rose-900/20'}`}>
               {product.stock ?? 0} {product.uom_abbreviation}
             </span>
             <span className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">{product.company}</span>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // E-commerce Customer Card Layout
+  return (
+    <div 
+      onClick={() => navigate(`/products/${product.id}`)}
+      className="bg-white dark:bg-slate-900 rounded-2xl border border-black/5 dark:border-white/5 overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full group cursor-pointer relative"
+    >
+      {/* Huge Image Area */}
+      <div className="w-full h-56 bg-slate-50 dark:bg-slate-800/50 relative overflow-hidden group/img">
+        {images[activeImage]?.url ? (
+          <img src={images[activeImage].url} alt={product.name} className="w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+             <FiBox className="w-12 h-12 text-slate-300 dark:text-slate-600" />
+          </div>
         )}
+
+        {/* Out of stock badge */}
+        {product.stock <= 0 && (
+          <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur text-rose-500 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm">
+            Sold Out
+          </div>
+        )}
+
+        {/* Mini Switcher Indicators */}
+        {images.length > 1 && (
+          <>
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity z-10">
+              {images.map((_, idx) => (
+                <div 
+                  key={idx} 
+                  className={`h-1.5 rounded-full transition-all ${activeImage === idx ? 'w-4 bg-sky-400' : 'w-1.5 bg-white/40'}`}
+                />
+              ))}
+            </div>
+            
+            <button 
+              onClick={prevImage}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center text-slate-900 dark:text-white opacity-0 group-hover/img:opacity-100 transition-all hover:bg-white hover:scale-110 shadow-md z-20 font-black text-sm"
+            >
+              &lt;
+            </button>
+            <button 
+              onClick={nextImage}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center text-slate-900 dark:text-white opacity-0 group-hover/img:opacity-100 transition-all hover:bg-white hover:scale-110 shadow-md z-20 font-black text-sm"
+            >
+              &gt;
+            </button>
+          </>
+        )}
+      </div>
+      
+      <div className="p-5 flex flex-col flex-1">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{product.category_name || "Misc"}</p>
+          <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{product.company}</p>
+        </div>
+        
+        <h3 className="font-bold text-slate-800 dark:text-white text-lg mb-1 leading-tight group-hover:text-sky-500 transition-colors line-clamp-2">{product.name}</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4 flex-1">{product.description || "Premium quality product."}</p>
+        
+        <div className="flex items-end justify-between mt-auto pt-4 border-t border-slate-50 dark:border-slate-800/50">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Price</p>
+            <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">
+              ${Number(product.price).toFixed(2)}
+            </span>
+          </div>
+          
+          <button 
+            onClick={(e) => { e.stopPropagation(); onBuy(product); }}
+            disabled={product.stock <= 0}
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-95 shadow-lg
+              ${product.stock > 0 
+                ? "bg-sky-500 hover:bg-sky-600 text-white shadow-sky-200 dark:shadow-none hover:-translate-y-1" 
+                : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none"}`}
+          >
+            <FiShoppingCart size={20} />
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -280,7 +338,7 @@ export default function Products() {
   
   // Input Form States
   const [formData, setFormData] = useState({
-    name: "", description: "", price: "", company: "", expire: "", category_id: "", uom_id: "", initial_quantity: 0, warehouse_id: "", supplier_id: "", images: [] 
+    name: "", description: "", price: "", company: "", expire: "", category_id: "", uom_id: "", initial_quantity: 0, warehouse_id: "", supplier_id: "", discount_percent: 0, discount_expires_at: "", images: [] 
   })
 
   const [newCategoryName, setNewCategoryName] = useState("")
@@ -288,10 +346,6 @@ export default function Products() {
   const [isUploading, setIsUploading] = useState(false)
 
   const isInternal = user?.role === "admin" || user?.role === "staff"
-
-  useEffect(() => {
-    fetchInitialData()
-  }, [])
 
   const fetchInitialData = async () => {
     setLoading(true)
@@ -309,11 +363,15 @@ export default function Products() {
       if (warehousesRes.ok) setWarehouses(await warehousesRes.json())
       if (suppliersRes.ok) setSuppliers(await suppliersRes.json())
     } catch (err) {
-      setError("System data synchronization failed.")
+      setError("Failed to load store data.")
     } finally {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchInitialData()
+  }, [])
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -332,6 +390,7 @@ export default function Products() {
       uom_id: units[0]?.id || "",
       initial_quantity: 0, warehouse_id: warehouses[0]?.id || "", 
       supplier_id: suppliers[0]?.id || "",
+      discount_percent: 0, discount_expires_at: "",
       images: [] 
     })
     setIsFormModalOpen(true)
@@ -346,6 +405,8 @@ export default function Products() {
       initial_quantity: product.stock || 0, warehouse_id: product.warehouse_id || warehouses[0]?.id || "",
       supplier_id: product.supplier_id || "",
       last_cost: product.last_cost || 0,
+      discount_percent: product.discount_percent || 0,
+      discount_expires_at: product.discount_expires_at ? product.discount_expires_at.split('T')[0] : "",
       images: product.images?.length > 0 ? product.images.map(img => img.url) : []
     })
     setIsFormModalOpen(true)
@@ -358,10 +419,13 @@ export default function Products() {
       const response = await authFetch("/categories", { method: "POST", body: JSON.stringify({ name: newCategoryName.trim() }) })
       if (response.ok) {
         const newCat = await response.json()
-        setCategories([...categories, newCat])
-        setFormData({ ...formData, category_id: newCat.id })
+        setCategories(prev => [...prev, newCat])
+        setFormData(prev => ({ ...prev, category_id: newCat.id }))
         setNewCategoryName("")
-      } else { alert("Category already exists or system error.") }
+      } else { 
+        const errData = await response.json()
+        alert(errData.error || "Category already exists.") 
+      }
     } catch (err) { alert("Network error") }
     finally { setIsAddingCategory(false) }
   }
@@ -377,8 +441,8 @@ export default function Products() {
       if (response.ok) {
         const { urls } = await response.json()
         setFormData({ ...formData, images: [...formData.images, ...urls] })
-      } else { alert("Image processor failed to respond.") }
-    } catch (err) { alert("Network error during stream.") }
+      } else { alert("Failed to upload images.") }
+    } catch (err) { alert("Upload error.") }
     finally { setIsUploading(false); e.target.value = null }
   }
 
@@ -393,7 +457,7 @@ export default function Products() {
     try {
       const response = await authFetch(url, { method, body: JSON.stringify(formData) })
       if (response.ok) { setIsFormModalOpen(false); fetchInitialData() }
-      else { const errData = await response.json(); alert(errData.error || "Persistence error.") }
+      else { const errData = await response.json(); alert(errData.error || "Failed to save product.") }
     } catch (err) { alert("Network failure.") }
   }
 
@@ -401,7 +465,7 @@ export default function Products() {
     try {
       const response = await authFetch(`/products/${currentProduct.id}`, { method: "DELETE" })
       if (response.ok) { setIsDeleteModalOpen(false); setProducts(products.filter(p => p.id !== currentProduct.id)) }
-      else { alert("Security lock: Product tied to active ledger.") }
+      else { alert("Cannot delete product with order history.") }
     } catch (err) { alert("Network error.") }
   }
 
@@ -415,14 +479,14 @@ export default function Products() {
         })
       })
       if (res.ok) {
-        alert(isPaid ? "Transaction confirmed. Items allocated." : "Order recorded. Awaiting payment terminal sync.")
+        alert(isPaid ? "Order placed and paid! We'll process it soon." : "Order placed! Please pay at the counter.")
         setBuyTarget(null)
         fetchInitialData() 
       } else {
         const err = await res.json()
-        alert(err.error || "Transaction failure.")
+        alert(err.error || "Failed to place order.")
       }
-    } catch (err) { alert("Core network failure.") }
+    } catch (err) { alert("Network failure.") }
   }
 
   return (
@@ -433,15 +497,15 @@ export default function Products() {
         <div className="flex items-center justify-between bg-box-bg dark:bg-box-dark-bg p-5 rounded-3xl border border-box-border dark:border-box-dark-border shadow-sm">
           <div>
             <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">
-               {isInternal ? "Inventory Catalog" : "Product Storefront"}
+               {isInternal ? "Shop Inventory" : "Start Shopping"}
             </h1>
             <p className="text-xs text-slate-400 dark:text-slate-300 mt-1 font-semibold uppercase tracking-widest">
-               {isInternal ? "Warehouse Management Interface" : "Live Product Availability"}
+               {isInternal ? "Manage your store products" : "Browse what's in store"}
             </p>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-bold text-slate-700 dark:text-slate-100 leading-tight">{user?.name || "Initializing..."}</p>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-100 leading-tight">{user?.name || "Loading..."}</p>
               <p className="text-[10px] uppercase tracking-[0.2em] font-black text-sky-500">{user?.role}</p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white font-black shadow-xl shadow-sky-200 dark:shadow-none uppercase text-lg border-2 border-white/20">
@@ -471,7 +535,7 @@ export default function Products() {
             {isInternal && (
               <>
                 <button onClick={() => setIsCategoryModalOpen(true)} className="flex items-center gap-2 px-6 py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm border border-black/5 dark:border-white/5"><FiFolder size={18} /><span className="hidden xl:inline">Categories</span></button>
-                <button onClick={openAddModal} className="flex items-center gap-2 px-6 py-4 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-sky-200 dark:shadow-none active:scale-95"><FiPlus size={18} /><span className="hidden xl:inline">New Product</span></button>
+                <button onClick={openAddModal} className="flex items-center gap-2 px-6 py-4 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-sky-200 dark:shadow-none active:scale-95"><FiPlus size={18} /><span className="hidden xl:inline">Add Product</span></button>
               </>
             )}
           </div>
@@ -480,9 +544,9 @@ export default function Products() {
         {/* Dynamic List */}
         <div className="flex-1 overflow-y-auto min-h-0 pr-1 -mr-1 custom-scrollbar">
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-full text-center"><FiActivity className="w-12 h-12 text-sky-500 animate-spin mb-4" /><p className="text-sm font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Catalog Synchronizing...</p></div>
+            <div className="flex flex-col items-center justify-center h-full text-center"><FiActivity className="w-12 h-12 text-sky-500 animate-spin mb-4" /><p className="text-sm font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Loading Store...</p></div>
           ) : filteredProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center bg-box-bg dark:bg-box-dark-bg rounded-[3rem] border-2 border-dashed border-box-border dark:border-box-dark-border py-20 px-10"><FiPackage className="w-24 h-24 text-slate-200 dark:text-slate-600 mb-6" /><p className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Zero matches detected</p><p className="text-sm text-slate-400 dark:text-slate-300 mt-2 font-medium">Try broadening your search criteria or register a new entity.</p></div>
+            <div className="flex flex-col items-center justify-center h-full text-center bg-box-bg dark:bg-box-dark-bg rounded-[3rem] border-2 border-dashed border-box-border dark:border-box-dark-border py-20 px-10"><FiPackage className="w-24 h-24 text-slate-200 dark:text-slate-600 mb-6" /><p className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">No products found</p><p className="text-sm text-slate-400 dark:text-slate-300 mt-2 font-medium">Try searching for something else or add a new product.</p></div>
           ) : (
             <div className={viewMode === "list" ? "space-y-4 pb-10" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 pb-10"}>
               {filteredProducts.map(product => (
@@ -498,26 +562,26 @@ export default function Products() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md">
           <div className="bg-box-bg dark:bg-box-dark-bg border border-box-border dark:border-box-dark-border w-full max-w-3xl rounded-[2.5rem] p-8 shadow-2xl flex flex-col gap-6 max-h-[95vh] overflow-hidden relative">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter text-slate-800 dark:text-white"><FiPackage size={24} className="text-sky-500" /> {currentProduct ? "Update Entity" : "Catalog Enrollment"}</h2>
+              <h2 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter text-slate-800 dark:text-white"><FiPackage size={24} className="text-sky-500" /> {currentProduct ? "Edit Product" : "Add New Product"}</h2>
               <button onClick={() => setIsFormModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-xl bg-slate-50 dark:bg-slate-800"><FiX size={24} /></button>
             </div>
             <form onSubmit={handleFormSubmit} className="space-y-6 text-sm overflow-y-auto pr-4 custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
-                  <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Identity Profile *</label><input required type="text" placeholder="e.g. Mechanical Keyboard G-100" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner" /></div>
-                  <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Description</label><textarea rows="3" placeholder="Core specifications and features..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner resize-none" /></div>
+                  <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Product Name *</label><input required type="text" placeholder="e.g. Mechanical Keyboard G-100" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner" /></div>
+                  <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Description</label><textarea rows="3" placeholder="Specs, features, etc..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner resize-none" /></div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Price Unit *</label><div className="relative"><FiDollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={16}/><input required type="number" step="0.01" min="0" placeholder="0.00" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full pl-10 pr-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" /></div></div>
-                    <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Manufacturer</label><input type="text" placeholder="Brand Name" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" /></div>
+                    <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Price *</label><div className="relative"><FiDollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={16}/><input required type="number" step="0.01" min="0" placeholder="0.00" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full pl-10 pr-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" /></div></div>
+                    <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Brand</label><input type="text" placeholder="Brand Name" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" /></div>
                   </div>
 
-                  {/* Markup Helper */}
+                  {/* Price Helper */}
                   <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30">
                     <div className="flex items-center justify-between mb-3 px-1">
-                      <label className="block text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em]">Price Calculation Helper</label>
+                      <label className="block text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em]">Price Helper</label>
                       {formData.last_cost > 0 && (
                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest bg-white dark:bg-slate-900 px-2 py-0.5 rounded-full border border-slate-100 dark:border-slate-800">
-                           Last Acquisition: ${formData.last_cost}
+                           Last Cost: ${formData.last_cost}
                         </span>
                       )}
                     </div>
@@ -525,7 +589,7 @@ export default function Products() {
                       <div className="flex-1">
                          <input 
                            type="number" 
-                           placeholder="Supplier Cost..." 
+                           placeholder="Buy Cost..." 
                            value={formData.cost_input || ""}
                            onChange={(e) => {
                              const cost = parseFloat(e.target.value) || 0
@@ -551,24 +615,37 @@ export default function Products() {
                       </div>
                     </div>
                     {formData.last_cost > 0 && !formData.cost_input && (
-                      <p className="text-[8px] text-emerald-500 font-bold mt-2 px-1 italic">* Using last cost data. Adjust manually if needed.</p>
+                      <p className="text-[8px] text-emerald-500 font-bold mt-2 px-1 italic">* Based on last purchase cost.</p>
                     )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Node Category *</label>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Discount %</label>
+                      <input type="number" step="0.01" min="0" max="100" placeholder="0" value={formData.discount_percent} onChange={e => setFormData({...formData, discount_percent: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Discount Expires</label>
+                      <input type="date" value={formData.discount_expires_at} onChange={e => setFormData({...formData, discount_expires_at: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Category *</label>
                       <select required value={formData.category_id} onChange={e => setFormData({...formData, category_id: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent outline-none focus:border-sky-500 shadow-inner font-bold">
-                        <option value="" disabled>Pick Label</option>
+                        <option value="" disabled>Select Category</option>
                         {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                       </select>
                       <div className="mt-3 flex gap-2">
                         <input type="text" placeholder="Quick Add..." value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="flex-1 px-3 py-2 text-[10px] bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 outline-none font-bold shadow-sm" />
-                        <button type="button" onClick={handleQuickCategoryAdd} disabled={isAddingCategory || !newCategoryName.trim()} className="w-10 h-10 flex items-center justify-center bg-sky-500 text-white rounded-xl shadow-lg shadow-sky-200 dark:shadow-none disabled:opacity-50 active:scale-95"><FiPlus size={18}/></button>
+                        <button type="button" onClick={handleQuickCategoryAdd} disabled={isAddingCategory || !newCategoryName.trim()} className="w-10 h-10 flex items-center justify-center bg-sky-500 text-white rounded-xl shadow-lg shadow-sky-200 dark:shadow-none disabled:opacity-50 active:scale-95">
+                          {isAddingCategory ? <FiActivity className="animate-spin" size={16} /> : <FiPlus size={18}/>}
+                        </button>
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Quantification *</label>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Unit of Measure *</label>
                       <select required value={formData.uom_id} onChange={e => setFormData({...formData, uom_id: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent outline-none focus:border-sky-500 shadow-inner font-bold">
                         <option value="" disabled>Select Unit</option>
                         {units.map(unit => <option key={unit.id} value={unit.id}>{unit.name} ({unit.abbreviation})</option>)}
@@ -576,19 +653,19 @@ export default function Products() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Primary Source (Supplier) *</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Supplier *</label>
                     <select required value={formData.supplier_id} onChange={e => setFormData({...formData, supplier_id: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent outline-none focus:border-sky-500 shadow-inner font-bold">
-                      <option value="" disabled>Select Strategic Partner</option>
+                      <option value="" disabled>Select Supplier</option>
                       {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
                 </div>
 
-                {/* Right Column: Visual Assets */}
+                {/* Right Column: Images */}
                 <div className="space-y-6">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 px-1">
-                      <FiUploadCloud className="text-sky-400" /> Visual Assets
+                      <FiUploadCloud className="text-sky-400" /> Product Images
                     </label>
                     <div className="space-y-4">
                       <label className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-3xl cursor-pointer transition-all relative overflow-hidden group shadow-inner
@@ -601,7 +678,7 @@ export default function Products() {
                          ) : (
                            <div className="text-center space-y-1">
                              <FiUploadCloud className="text-slate-300 dark:text-slate-600 group-hover:text-sky-500 transition-colors mx-auto" size={40} />
-                             <p className="text-[10px] font-black uppercase text-slate-400 group-hover:text-slate-600 transition-colors tracking-widest">Drop Image Frame</p>
+                             <p className="text-[10px] font-black uppercase text-slate-400 group-hover:text-slate-600 transition-colors tracking-widest">Upload Photo</p>
                            </div>
                          )}
                          <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
@@ -629,7 +706,7 @@ export default function Products() {
               </div>
               <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-800 mt-4">
                 <button type="button" onClick={() => setIsFormModalOpen(false)} className="px-8 py-3.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-[0.2em] transition-all">Cancel</button>
-                <button type="submit" className="px-10 py-3.5 text-xs font-black rounded-2xl text-white bg-sky-500 hover:bg-sky-600 shadow-xl shadow-sky-200 dark:shadow-none uppercase tracking-[0.2em] transition-all active:scale-95">Commit Record</button>
+                <button type="submit" className="px-10 py-3.5 text-xs font-black rounded-2xl text-white bg-sky-500 hover:bg-sky-600 shadow-xl shadow-sky-200 dark:shadow-none uppercase tracking-[0.2em] transition-all active:scale-95">Save Product</button>
               </div>
             </form>
           </div>
@@ -640,19 +717,19 @@ export default function Products() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
           <div className="bg-box-bg dark:bg-box-dark-bg border border-box-border dark:border-box-dark-border w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl flex flex-col gap-6 text-slate-800 dark:text-white max-h-[80vh]">
             <div className="flex items-center justify-between pb-2">
-               <h2 className="text-lg font-black flex items-center gap-3 uppercase tracking-tighter"><FiFolder className="text-sky-400" /> Label Manager</h2>
+               <h2 className="text-lg font-black flex items-center gap-3 uppercase tracking-tighter"><FiFolder className="text-sky-400" /> Manage Categories</h2>
                <button onClick={() => setIsCategoryModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-slate-50 dark:bg-slate-800 rounded-xl transition-all"><FiX size={20} /></button>
             </div>
             <div className="space-y-6 flex-1 overflow-hidden flex flex-col">
               <div className="p-5 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-black/5 dark:border-white/5 shadow-inner">
-                 <label className="block text-[10px] text-slate-400 font-black uppercase tracking-widest mb-3 px-1">New Entry</label>
+                 <label className="block text-[10px] text-slate-400 font-black uppercase tracking-widest mb-3 px-1">New Category</label>
                  <div className="flex gap-2">
                     <input type="text" placeholder="Category Name..." value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="flex-1 px-4 py-3 text-sm bg-white dark:bg-slate-950 rounded-2xl border border-transparent focus:border-sky-500 outline-none font-bold shadow-sm" />
                     <button onClick={handleQuickCategoryAdd} disabled={isAddingCategory || !newCategoryName.trim()} className="px-6 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-black transition-all shadow-lg shadow-sky-200 dark:shadow-none disabled:opacity-50 active:scale-95">{isAddingCategory ? "..." : <FiPlus size={20}/>}</button>
                  </div>
               </div>
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                 <label className="block text-[10px] text-slate-400 font-black uppercase tracking-widest mb-3 px-1">System Labels ({categories.length})</label>
+                 <label className="block text-[10px] text-slate-400 font-black uppercase tracking-widest mb-3 px-1">All Categories ({categories.length})</label>
                  <div className="grid grid-cols-1 gap-2.5">
                     {categories.map(cat => (
                        <div key={cat.id} className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-sky-500/50 transition-all">
@@ -663,7 +740,7 @@ export default function Products() {
                  </div>
               </div>
             </div>
-            <div className="pt-2"><button onClick={() => setIsCategoryModalOpen(false)} className="w-full py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95 border border-black/5 dark:border-white/5">Exit Manager</button></div>
+            <div className="pt-2"><button onClick={() => setIsCategoryModalOpen(false)} className="w-full py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95 border border-black/5 dark:border-white/5">Close</button></div>
           </div>
         </div>
       )}
@@ -671,12 +748,12 @@ export default function Products() {
       {buyTarget && <BuyModal product={buyTarget} onConfirm={handleBuy} onClose={() => setBuyTarget(null)} />}
 
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-box-bg dark:bg-box-dark-bg border border-box-border dark:border-box-dark-border w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl text-slate-800 dark:text-white text-center">
             <div className="w-20 h-20 rounded-3xl bg-rose-50 dark:bg-rose-900/20 text-rose-500 flex items-center justify-center mx-auto mb-6 shadow-xl shadow-rose-100 dark:shadow-none border border-rose-100 dark:border-rose-900/30"><FiTrash2 size={32} /></div>
-            <h3 className="text-xl font-black uppercase tracking-tighter mb-2">Drop Entity?</h3>
-            <p className="text-xs text-slate-400 font-medium px-4 mb-8 leading-relaxed">Are you certain you want to purge <strong className="text-slate-800 dark:text-slate-200 font-black">"{currentProduct?.name}"</strong> from the master catalog? This action is irreversible.</p>
-            <div className="flex gap-3 justify-center"><button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-4 rounded-2xl text-xs font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95">Abort</button><button onClick={handleDeleteConfirm} className="flex-1 py-4 rounded-2xl text-xs font-black text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-200 dark:shadow-none uppercase tracking-widest transition-all active:scale-95">Purge Record</button></div>
+            <h3 className="text-xl font-black uppercase tracking-tighter mb-2">Delete Product?</h3>
+            <p className="text-xs text-slate-400 font-medium px-4 mb-8 leading-relaxed">Are you sure you want to remove <strong className="text-slate-800 dark:text-slate-200 font-black">"{currentProduct?.name}"</strong>? This cannot be undone.</p>
+            <div className="flex gap-3 justify-center"><button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-4 rounded-2xl text-xs font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95">Cancel</button><button onClick={handleDeleteConfirm} className="flex-1 py-4 rounded-2xl text-xs font-black text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-200 dark:shadow-none uppercase tracking-widest transition-all active:scale-95">Confirm Delete</button></div>
           </div>
         </div>
       )}

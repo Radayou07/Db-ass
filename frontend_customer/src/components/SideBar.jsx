@@ -5,7 +5,7 @@ import { MdShoppingCart, MdAnalytics, MdInventory2 } from "react-icons/md"
 import { GiShoppingBag } from "react-icons/gi"
 import { FaHandsHelping } from "react-icons/fa"
 import { RiMenuFoldLine, RiMenuUnfoldLine } from "react-icons/ri"
-import { FiLogOut, FiShield, FiUser, FiTag } from "react-icons/fi"
+import { FiLogOut, FiShield, FiUser } from "react-icons/fi"
 import { BsBoxSeam } from "react-icons/bs"
 import DarkMode from "./DarkMode"
 import { useAuth } from "../context/AuthContext"
@@ -17,7 +17,6 @@ const ADMIN_NAV = [
   { to: "/orders",     Icon: GiShoppingBag,  label: "Orders" },
   { to: "/customers",  Icon: IoMdPeople,     label: "Customers" },
   { to: "/suppliers",  Icon: FaHandsHelping, label: "Suppliers" },
-  { to: "/discounts",  Icon: FiTag,          label: "Discounts" },
   { to: "/analysis",  Icon: MdAnalytics,    label: "Analysis" },
 ]
 

@@ -3,7 +3,7 @@ import './App.css'
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom' 
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
-import SideBar  from './components/SideBar'
+import Header  from './components/Header'
 
 // Public pages
 import Login    from './pages/Login'
@@ -13,22 +13,19 @@ import Register from './pages/Register'
 import Home      from './pages/Home'
 import Products  from './pages/Products'
 import ProductDetail from './pages/ProductDetail'
-import Inventories from "./pages/Inventories"
 import Orders    from './pages/Orders'
-import Customers from './pages/Customers'
-import Suppliers from './pages/Suppliers'
-import Staff     from './pages/Staff'
-import Analysis  from './pages/Analysis'
-import Discounts from './pages/Discounts'
 import Profile   from './pages/Profile'
+import Cart      from './pages/Cart'
 
 // ── Layout wrapper ───────────────────────────────────────────────────
 function AppLayout({ isDark, setIsDark }) {
   return (
-    <div className="flex flex-row h-screen bg-main-bg dark:bg-main-dark-bg overflow-hidden">
-      <SideBar isDark={isDark} setIsDark={setIsDark} />
-      <main className="flex-1 h-screen overflow-y-auto">
-        <Outlet /> 
+    <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
+      <Header isDark={isDark} setIsDark={setIsDark} />
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto w-full h-full">
+          <Outlet /> 
+        </div>
       </main>
     </div>
   )
@@ -65,63 +62,8 @@ function App() {
               <Route index             element={<Home />} />
               <Route path="products"   element={<Products />} />
               <Route path="products/:id" element={<ProductDetail />} />
-              
-              <Route 
-                path="inventories" 
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'staff']}>
-                    <Inventories />
-                  </ProtectedRoute>
-                } 
-              />
-              
+              <Route path="cart"       element={<Cart />} />
               <Route path="orders"     element={<Orders />} />
-              
-              <Route 
-                path="customers" 
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'staff']}>
-                    <Customers />
-                  </ProtectedRoute>
-                } 
-              />
-
-              <Route 
-                path="suppliers" 
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'staff']}>
-                    <Suppliers />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="staff" 
-                element={
-                  <ProtectedRoute allowedRoles={['admin']}>
-                    <Staff />
-                  </ProtectedRoute>
-                } 
-              />
-
-              <Route 
-                path="analysis" 
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'staff']}>
-                    <Analysis />
-                  </ProtectedRoute>
-                } 
-              />
-
-              <Route 
-                path="discounts" 
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'staff']}>
-                    <Discounts />
-                  </ProtectedRoute>
-                } 
-              />
-
               <Route path="profile"    element={<Profile />} />
               
               <Route path="*"          element={<Navigate to="/" replace />} />

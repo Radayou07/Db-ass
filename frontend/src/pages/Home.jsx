@@ -99,13 +99,18 @@ const AVATAR_COLORS = ["bg-sky-500", "bg-violet-500", "bg-teal-500", "bg-orange-
 export default function Home() {
   const { authFetch, user } = useAuth()
   const [stats, setStats] = useState(null)
+  const [featuredProducts, setFeaturedProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
   const isInternal = user?.role === "admin" || user?.role === "staff"
 
   useEffect(() => {
-    fetchStats()
-  }, [])
+    if (isInternal) {
+      fetchStats()
+    } else {
+      fetchCustomerData()
+    }
+  }, [isInternal])
 
   async function fetchStats() {
     setLoading(true)
@@ -114,6 +119,25 @@ export default function Home() {
       if (res.ok) setStats(await res.json())
     } catch (err) {
       console.error("Fetch stats failed", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function fetchCustomerData() {
+    setLoading(true)
+    try {
+      const [statsRes, productsRes] = await Promise.all([
+        authFetch("/dashboard/stats"),
+        authFetch("/products")
+      ])
+      if (statsRes.ok) setStats(await statsRes.json())
+      if (productsRes.ok) {
+        const prods = await productsRes.json()
+        setFeaturedProducts(prods.slice(-4).reverse()) // Last 4 products as "New Arrivals"
+      }
+    } catch (err) {
+      console.error("Fetch customer data failed", err)
     } finally {
       setLoading(false)
     }
@@ -130,16 +154,11 @@ export default function Home() {
   const topCustomers = stats?.top_customers || []
 
   const STAT_CARDS = isInternal ? [
-    { label: "Total Products", value: counts.products?.toLocaleString(), sub: "Catalog entities", Icon: FiBox,          card: "border-box-border bg-box-border-bg", icon: "text-blue-400 bg-blue-50 dark:bg-blue-950/40" },
-    { label: "Total Orders",   value: counts.orders?.toLocaleString(),   sub: "Transactions",      Icon: FiShoppingCart,  card: "border-box-border bg-box-border-bg", icon: "text-sky-400  bg-sky-50  dark:bg-sky-950/40"  },
-    { label: "Cumulative Stock",value: counts.total_stock?.toLocaleString(),sub: "Units on hand",   Icon: FiLayers,       card: "border-box-border bg-box-border-bg", icon: "text-teal-400 bg-teal-50 dark:bg-teal-950/40" },
-    { label: "Critical Stock", value: counts.out_of_stock?.toLocaleString(),sub: "Needs attention",Icon: FiAlertTriangle, card: "border-box-border-warn bg-box-border-warn-bg", icon: "text-orange-400 bg-orange-50 dark:bg-orange-950/40" },
-  ] : [
-    { label: "Available Items", value: counts.products?.toLocaleString(), sub: "Our full catalog", Icon: FiPackage,       card: "border-box-border bg-box-border-bg", icon: "text-sky-400 bg-sky-50 dark:bg-sky-950/40" },
-    { label: "My Orders",      value: counts.orders?.toLocaleString(),   sub: "Purchase history",  Icon: FiShoppingBag,    card: "border-box-border bg-box-border-bg", icon: "text-violet-400 bg-violet-50 dark:bg-violet-950/40" },
-    { label: "New Categories",  value: counts.categories?.toLocaleString() || "Active", sub: "Explore trends",   Icon: FiTag,      card: "border-box-border bg-box-border-bg", icon: "text-teal-400 bg-teal-50 dark:bg-teal-950/40" },
-    { label: "Verified Member", value: "Level 1", sub: user?.name, Icon: FiHeart, card: "border-box-border bg-box-border-bg", icon: "text-rose-400 bg-rose-50 dark:bg-rose-950/40" },
-  ]
+    { label: "Products", value: counts.products?.toLocaleString(), sub: "In your store", Icon: FiBox,          card: "border-box-border bg-box-border-bg", icon: "text-blue-400 bg-blue-50 dark:bg-blue-950/40" },
+    { label: "Orders",   value: counts.orders?.toLocaleString(),   sub: "Customer sales",      Icon: FiShoppingCart,  card: "border-box-border bg-box-border-bg", icon: "text-sky-400  bg-sky-50  dark:bg-sky-950/40"  },
+    { label: "Total Stock",value: counts.total_stock?.toLocaleString(),sub: "Units available",   Icon: FiLayers,       card: "border-box-border bg-box-border-bg", icon: "text-teal-400 bg-teal-50 dark:bg-teal-950/40" },
+    { label: "Low Stock", value: counts.out_of_stock?.toLocaleString(),sub: "Needs restocking",Icon: FiAlertTriangle, card: "border-box-border-warn bg-box-border-warn-bg", icon: "text-orange-400 bg-orange-50 dark:bg-orange-950/40" },
+  ] : []
 
   const PIE_DATA = [
     { label: "In Stock", value: counts.total_stock || 0, color: "#38bdf8" },
@@ -147,40 +166,40 @@ export default function Home() {
   ]
 
   return (
-    <div className="h-screen p-5 flex flex-col gap-5 text-slate-700 dark:text-slate-100">
-      <div className="flex items-center justify-between">
+    <div className="h-screen p-5 flex flex-col gap-5 text-slate-700 dark:text-slate-100 overflow-y-auto custom-scrollbar">
+      <div className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-xl font-bold text-slate-800 dark:text-white">
-            {isInternal ? "Executive Dashboard" : `Welcome back, ${user?.name.split(" ")[0]}!`}
+            {isInternal ? "Store Dashboard" : `Welcome back, ${user?.name.split(" ")[0]}!`}
           </h1>
           <p className="text-xs text-slate-400 dark:text-slate-300 mt-0.5">
-            {isInternal ? "Real-time system operational metrics." : "Explore our catalog and track your latest orders below."}
+            {isInternal ? "Quick overview of your business." : "Discover our latest arrivals and top picks for you."}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-5 grid-rows-6 gap-4 flex-1 min-h-0">
-        {/* Stats row */}
-        <div className="col-span-5 row-span-1 grid grid-cols-4 gap-3">
-          {STAT_CARDS.map(({ label, value, sub, Icon, card, icon }) => (
-            <Card key={label} className={`flex items-center gap-4 p-4 border-2 ${card}`}>
-              <span className={`p-2.5 rounded-xl ${icon}`}>
-                <Icon size={18} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[11px] text-slate-400 dark:text-slate-300 font-medium uppercase tracking-wide truncate">{label}</p>
-                <p className="text-xl font-bold leading-tight">{value}</p>
-                <p className="text-[10px] text-slate-400 dark:text-slate-300 mt-0.5 truncate">{sub}</p>
-              </div>
-            </Card>
-          ))}
-        </div>
-
+      <div className={isInternal ? "grid grid-cols-5 grid-rows-6 gap-4 flex-1 min-h-0" : "flex flex-col gap-8 pb-10"}>
         {isInternal ? (
           <>
+            {/* Stats row */}
+            <div className="col-span-5 row-span-1 grid grid-cols-4 gap-3">
+              {STAT_CARDS.map(({ label, value, sub, Icon, card, icon }) => (
+                <Card key={label} className={`flex items-center gap-4 p-4 border-2 ${card}`}>
+                  <span className={`p-2.5 rounded-xl ${icon}`}>
+                    <Icon size={18} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-slate-400 dark:text-slate-300 font-medium uppercase tracking-wide truncate">{label}</p>
+                    <p className="text-xl font-bold leading-tight">{value}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-300 mt-0.5 truncate">{sub}</p>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
             {/* Top customers */}
             <Card className="col-span-1 row-span-2 row-start-2 p-4 flex flex-col gap-3 overflow-hidden">
-              <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide flex items-center gap-2"><FiUsers/> Top Consumers</p>
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide flex items-center gap-2"><FiUsers/> Top Customers</p>
               <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
                 {topCustomers.map((c, i) => (
                   <div key={c.name} className="flex items-center gap-2.5">
@@ -198,7 +217,7 @@ export default function Home() {
 
             {/* Donut chart */}
             <Card className="col-span-2 row-span-2 row-start-2 p-4 flex flex-col gap-2">
-              <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide">Inventory Health</p>
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide">Stock Overview</p>
               <div className="flex-1 flex items-center justify-around">
                 <DonutChart data={PIE_DATA} size={120} />
                 <div className="flex flex-col gap-2">
@@ -215,7 +234,7 @@ export default function Home() {
 
             {/* Top 10 Products */}
             <Card className="col-span-2 row-span-5 col-start-4 row-start-2 p-4 flex flex-col gap-3 overflow-hidden">
-              <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide">Revenue Drivers (Top 10)</p>
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide">Best Selling Products</p>
               <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto pr-1">
                 {topProducts.map((p, i) => (
                   <div key={p.name} className="flex flex-col gap-1">
@@ -240,7 +259,7 @@ export default function Home() {
             {/* Time series placeholder */}
             <Card className="col-span-3 row-span-3 row-start-4 p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide">Purchase vs Sale Trends</p>
+                <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide">Purchases vs Sales</p>
                 <p className="text-[8px] text-slate-400 dark:text-slate-300 italic font-mono uppercase tracking-widest">Projection Data Only</p>
               </div>
               <div className="flex-1 flex items-center min-h-0 opacity-40 grayscale">
@@ -253,40 +272,94 @@ export default function Home() {
             </Card>
           </>
         ) : (
-          /* Customer Welcome View */
-          <div className="col-span-5 row-span-5 flex flex-col gap-6 pt-2">
-             <Card className="flex-1 flex items-center justify-center p-10 bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-950/20 dark:to-blue-950/20 border-sky-100 dark:border-sky-900/30 overflow-hidden relative">
-                <div className="relative z-10 text-center space-y-4 max-w-lg">
-                   <div className="w-20 h-20 bg-transparent dark:bg-box-dark-bg rounded-3xl shadow-xl flex items-center justify-center mx-auto mb-6">
-                      <FiHeart className="text-rose-500 w-10 h-10 fill-rose-500 animate-pulse" />
-                   </div>
-                   <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Your Storefront Hub.</h2>
-                   <p className="text-slate-500 dark:text-slate-300 text-sm leading-relaxed">
-                      Thank you for being part of our network. From this terminal, you can browse our live catalog, track your order fulfillment, and manage your delivery details.
+          /* Customer Welcome View - E-commerce Landing Page Style */
+          <div className="flex flex-col gap-10">
+             {/* Hero Banner */}
+             <div className="w-full rounded-[2.5rem] bg-gradient-to-r from-sky-500 to-indigo-600 p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-10 overflow-hidden relative shadow-xl shadow-sky-500/20">
+                <div className="relative z-10 max-w-xl text-white space-y-6">
+                   <span className="px-4 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-xs font-black uppercase tracking-widest border border-white/30 shadow-sm">Early Access</span>
+                   <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-[1.1]">Upgrade Your Setup Today.</h2>
+                   <p className="text-sky-100 text-base md:text-lg font-medium leading-relaxed max-w-md">
+                      Explore our premium selection of top-tier products with fast delivery and exceptional support.
                    </p>
-                   <div className="pt-4 flex items-center justify-center gap-3">
-                      <Link to="/products" className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-sky-200 dark:shadow-none transition-all">Explore Products</Link>
-                      <Link to="/orders" className="px-6 py-3 bg-transparent dark:bg-transparent/10 text-slate-700 dark:text-white rounded-2xl font-bold text-sm border border-black/5 dark:border-white/5 transition-all">My History</Link>
+                   <div className="pt-2 flex items-center gap-4">
+                      <Link to="/products" className="px-8 py-4 bg-white text-sky-600 hover:bg-slate-50 rounded-2xl font-black text-sm shadow-xl transition-transform active:scale-95 flex items-center gap-2">
+                        Shop All <FiShoppingCart />
+                      </Link>
                    </div>
                 </div>
-                {/* Decorative background icon */}
-                <FiPackage className="absolute -bottom-10 -right-10 w-64 h-64 text-sky-500/5 rotate-12 pointer-events-none" />
-             </Card>
+                {/* Abstract Visuals */}
+                <div className="relative z-10 w-full max-w-sm hidden md:block">
+                   <div className="aspect-square rounded-full bg-gradient-to-br from-white/20 to-white/0 backdrop-blur-3xl border border-white/20 p-8 shadow-2xl animate-float">
+                      <div className="w-full h-full rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                         <FiPackage className="w-32 h-32 text-white/80" />
+                      </div>
+                   </div>
+                </div>
+                {/* Background Blobs */}
+                <div className="absolute -top-24 -left-24 w-96 h-96 bg-white/10 blur-3xl rounded-full pointer-events-none"></div>
+                <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-900/30 blur-3xl rounded-full pointer-events-none"></div>
+             </div>
 
-             <div className="grid grid-cols-3 gap-6 h-40">
-                <Card className="p-4 flex flex-col justify-between border-b-4 border-sky-400">
-                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Store Policy</p>
-                   <p className="text-sm font-medium text-slate-600 dark:text-slate-100">Fast delivery within 24 hours of confirmation.</p>
+             {/* Features/Highlights */}
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="p-8 flex flex-col items-center text-center gap-4 border-b-4 border-sky-400 hover:-translate-y-1 transition-transform">
+                   <div className="w-16 h-16 rounded-2xl bg-sky-50 dark:bg-sky-900/20 text-sky-500 flex items-center justify-center mb-2"><FiPackage size={28} /></div>
+                   <div>
+                     <h3 className="font-bold text-slate-800 dark:text-white mb-2">Free Shipping</h3>
+                     <p className="text-sm font-medium text-slate-500 dark:text-slate-400">On all orders over $50. Tracked and fully insured.</p>
+                   </div>
                 </Card>
-                <Card className="p-4 flex flex-col justify-between border-b-4 border-teal-400">
-                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Catalog Sync</p>
-                   <p className="text-sm font-medium text-slate-600 dark:text-slate-100">Live prices and stock levels directly from our hub.</p>
+                <Card className="p-8 flex flex-col items-center text-center gap-4 border-b-4 border-teal-400 hover:-translate-y-1 transition-transform">
+                   <div className="w-16 h-16 rounded-2xl bg-teal-50 dark:bg-teal-900/20 text-teal-500 flex items-center justify-center mb-2"><FiTag size={28} /></div>
+                   <div>
+                     <h3 className="font-bold text-slate-800 dark:text-white mb-2">Member Discounts</h3>
+                     <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Enjoy exclusive pricing logged into your account.</p>
+                   </div>
                 </Card>
-                <Card className="p-4 flex flex-col justify-between border-b-4 border-violet-400">
-                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Support Node</p>
-                   <p className="text-sm font-medium text-slate-600 dark:text-slate-100">Reach out via our hotline for instant order tracking.</p>
+                <Card className="p-8 flex flex-col items-center text-center gap-4 border-b-4 border-violet-400 hover:-translate-y-1 transition-transform">
+                   <div className="w-16 h-16 rounded-2xl bg-violet-50 dark:bg-violet-900/20 text-violet-500 flex items-center justify-center mb-2"><FiHeart size={28} /></div>
+                   <div>
+                     <h3 className="font-bold text-slate-800 dark:text-white mb-2">24/7 Support</h3>
+                     <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Our team is always here to help with your orders.</p>
+                   </div>
                 </Card>
              </div>
+
+             {/* New Arrivals Grid */}
+             {featuredProducts.length > 0 && (
+               <div className="flex flex-col gap-6">
+                 <div className="flex items-center justify-between">
+                   <h3 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">New Arrivals</h3>
+                   <Link to="/products" className="text-sm font-bold text-sky-500 hover:text-sky-600 uppercase tracking-widest flex items-center gap-1 transition-colors">View All &rarr;</Link>
+                 </div>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {featuredProducts.map(product => (
+                      <Link to={`/products`} key={product.id} className="group relative bg-white dark:bg-slate-900 rounded-2xl border border-black/5 dark:border-white/5 overflow-hidden hover:shadow-xl transition-all duration-300">
+                        <div className="aspect-[4/3] bg-slate-50 dark:bg-slate-800 overflow-hidden relative">
+                           {product.images?.length > 0 ? (
+                             <img src={product.images[0].url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                           ) : (
+                             <div className="w-full h-full flex items-center justify-center">
+                                <FiBox className="w-10 h-10 text-slate-300" />
+                             </div>
+                           )}
+                           {product.stock <= 0 && (
+                             <div className="absolute top-3 right-3 px-3 py-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur text-rose-500 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm">Sold Out</div>
+                           )}
+                        </div>
+                        <div className="p-5 flex flex-col gap-2">
+                           <div className="flex justify-between items-start">
+                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{product.category_name || "Misc"}</p>
+                             <p className="font-black text-slate-900 dark:text-white">${Number(product.price).toFixed(2)}</p>
+                           </div>
+                           <h4 className="font-bold text-slate-800 dark:text-slate-100 truncate text-base group-hover:text-sky-500 transition-colors">{product.name}</h4>
+                        </div>
+                      </Link>
+                    ))}
+                 </div>
+               </div>
+             )}
           </div>
         )}
       </div>

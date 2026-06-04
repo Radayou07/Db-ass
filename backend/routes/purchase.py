@@ -133,6 +133,9 @@ def update_purchase_status(id):
                         inventory_quantity=item.quantity
                     )
                     db.session.add(new_inv)
+            
+            # Record who received the goods
+            purchase.employee_id = int(get_jwt_identity())
 
         purchase.status = new_status
         db.session.commit()
@@ -151,6 +154,10 @@ def delete_purchase(id):
 
     if purchase.status == "received":
         return jsonify({"error": "Cannot delete a received purchase. Cancel it first (if logic allowed) or archive."}), 400
+
+    from models import PaymentSupplier
+    if PaymentSupplier.query.filter_by(purchase_id=id).first():
+        return jsonify({"error": "Cannot delete purchase with payment records."}), 400
 
     try:
         PurchaseDetail.query.filter_by(purchase_id=id).delete()

@@ -102,6 +102,10 @@ class Product(db.Model):
     category_id = db.Column(db.Integer, db.ForeignKey("category.id"), nullable=False)
     uom_id      = db.Column(db.Integer, db.ForeignKey("unit_of_measure.id"), nullable=True)
     supplier_id = db.Column(db.Integer, db.ForeignKey("supplier.id"), nullable=True)
+    
+    # Discounts
+    discount_percent    = db.Column(db.Numeric(5, 2), default=0)
+    discount_expires_at = db.Column(db.Date, nullable=True)
 
     # Relationships
     category = db.relationship("Category", backref=db.backref("products", lazy=True))
@@ -110,6 +114,14 @@ class Product(db.Model):
     images   = db.relationship("ProductImage", backref="product", cascade="all, delete-orphan", lazy=True)
 
     def to_dict(self):
+        sale_price = float(self.price)
+        has_discount = False
+        
+        if self.discount_percent and float(self.discount_percent) > 0:
+            if not self.discount_expires_at or self.discount_expires_at >= datetime.utcnow().date():
+                has_discount = True
+                sale_price = float(self.price) * (1 - float(self.discount_percent) / 100)
+
         return {
             "id": self.id,
             "name": self.name,
@@ -122,7 +134,11 @@ class Product(db.Model):
             "uom_name": self.uom.name if self.uom else None,
             "uom_abbreviation": self.uom.abbreviation if self.uom else None,
             "supplier_id": self.supplier_id,
-            "supplier_name": self.supplier.name if self.supplier else "No Supplier"
+            "supplier_name": self.supplier.name if self.supplier else "No Supplier",
+            "discount_percent": float(self.discount_percent) if self.discount_percent else 0,
+            "discount_expires_at": self.discount_expires_at.isoformat() if self.discount_expires_at else None,
+            "sale_price": round(sale_price, 2),
+            "has_discount": has_discount
         }
 
 
@@ -141,6 +157,73 @@ class ProductImage(db.Model):
             "url": self.url.replace(":5000/", ":5001/"),
             "is_primary": self.is_primary,
             "uploaded_at": self.uploaded_at.isoformat()
+        }
+
+
+class Discount(db.Model):
+    __tablename__ = "discount"
+
+    id         = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    code       = db.Column(db.String(50), unique=True, nullable=False)
+    type       = db.Column(db.Enum('percent', 'fixed'), nullable=False)
+    value      = db.Column(db.Numeric(10, 2), nullable=False)
+    min_order  = db.Column(db.Numeric(10, 2), default=0)
+    expires_at = db.Column(db.Date, nullable=True)
+    is_active  = db.Column(db.Boolean, default=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "code": self.code,
+            "type": self.type,
+            "value": float(self.value),
+            "min_order": float(self.min_order) if self.min_order else 0,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "is_active": self.is_active
+        }
+
+
+class Wishlist(db.Model):
+    __tablename__ = "wishlist"
+
+    id          = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
+    product_id  = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    customer = db.relationship("Customer", backref=db.backref("wishlists", lazy=True))
+    product  = db.relationship("Product", backref=db.backref("wishlisted_by", lazy=True))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "customer_id": self.customer_id,
+            "product_id": self.product_id,
+            "created_at": self.created_at.isoformat(),
+            "product": self.product.to_dict() if self.product else None
+        }
+
+
+class Cart(db.Model):
+    __tablename__ = "cart"
+
+    id          = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
+    product_id  = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
+    quantity    = db.Column(db.Integer, nullable=False, default=1)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    customer = db.relationship("Customer", backref=db.backref("cart_items", lazy=True))
+    product  = db.relationship("Product", backref=db.backref("in_carts", lazy=True))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "customer_id": self.customer_id,
+            "product_id": self.product_id,
+            "quantity": self.quantity,
+            "product": self.product.to_dict() if self.product else None
         }
 
 
@@ -313,16 +396,23 @@ class Orders(db.Model):
     date        = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
     employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
+    
+    # Discounts
+    discount_id     = db.Column(db.Integer, db.ForeignKey("discount.id"), nullable=True)
+    discount_amount = db.Column(db.Numeric(10, 2), default=0)
 
     customer = db.relationship("Customer", backref=db.backref("orders", lazy=True))
     employee = db.relationship("Employee", backref=db.backref("processed_orders", lazy=True))
+    discount = db.relationship("Discount", backref=db.backref("orders", lazy=True))
 
     def to_dict(self):
         return {
             "id": self.id,
             "date": self.date.isoformat(),
             "customer_id": self.customer_id,
-            "employee_id": self.employee_id
+            "employee_id": self.employee_id,
+            "discount_id": self.discount_id,
+            "discount_amount": float(self.discount_amount) if self.discount_amount else 0
         }
 
 

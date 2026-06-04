@@ -47,6 +47,16 @@ def create_order():
                 return jsonify({"error": "No staff member to process order."}), 500
             employee_id = system_emp.id
             method = "Transfer" # Customers always pay via Transfer (QR)
+            
+            # Read from cart
+            from models import Cart
+            cart_items = Cart.query.filter_by(customer_id=customer_id).all()
+            if not cart_items:
+                return jsonify({"error": "Cart is empty."}), 400
+                
+            items = []
+            for item in cart_items:
+                items.append({"product_id": item.product_id, "quantity": item.quantity})
         else:
             customer_id = data.get("customer_id")
             employee_id = user_id
@@ -57,23 +67,39 @@ def create_order():
             method = data.get("payment_method", "Cash")
             if method not in ['Cash', 'Credit card', 'Transfer']:
                 method = "Cash"
+                
+            items = data.get("items", []) 
+            if not items:
+                return jsonify({"error": "No items provided."}), 400
 
-        items = data.get("items", []) 
-        if not items:
-            return jsonify({"error": "No items provided."}), 400
+        discount_id = data.get("discount_id")
+        discount_amount = float(data.get("discount_amount", 0))
 
-        new_order = Orders(customer_id=customer_id, employee_id=employee_id, date=datetime.utcnow().date())
+        new_order = Orders(
+            customer_id=customer_id, 
+            employee_id=employee_id, 
+            date=datetime.utcnow().date(),
+            discount_id=discount_id,
+            discount_amount=discount_amount
+        )
         db.session.add(new_order)
         db.session.flush()
 
-        total_amount = 0
+        subtotal = 0
         for item in items:
             pid = int(item["product_id"])
             qty = int(item["quantity"])
             product = Product.query.get(pid)
             if not product: continue
             
-            total_amount += (float(product.price) * qty)
+            # Use sale_price logic
+            sale_price = float(product.price)
+            if product.discount_percent and float(product.discount_percent) > 0:
+                if not product.discount_expires_at or product.discount_expires_at >= datetime.utcnow().date():
+                    sale_price = float(product.price) * (1 - float(product.discount_percent) / 100)
+                    
+            item_price = round(sale_price, 2)
+            subtotal += (item_price * qty)
             
             # Stock deduction
             try:
@@ -86,20 +112,27 @@ def create_order():
                     rem -= take
             except: pass
 
-            detail = OrderDetail(order_id=new_order.id, product_id=pid, quantity=qty, price=product.price)
+            detail = OrderDetail(order_id=new_order.id, product_id=pid, quantity=qty, price=item_price)
             db.session.add(detail)
+
+        final_total = max(0, subtotal - discount_amount)
 
         # 4. Immediate Payment
         if data.get("paid", False):
             new_payment = PaymentCustomer(
                 order_id=new_order.id,
-                amount=total_amount,
+                amount=final_total,
                 method=method,
                 status=1,
                 employee_id=employee_id,
                 date=datetime.utcnow().date()
             )
             db.session.add(new_payment)
+            
+        # Clear Cart
+        if role == "customer":
+            from models import Cart
+            Cart.query.filter_by(customer_id=customer_id).delete()
 
         db.session.commit()
         return jsonify({"message": "Order processed.", "id": new_order.id}), 201
@@ -121,7 +154,9 @@ def pay_order(id):
     if PaymentCustomer.query.filter_by(order_id=id, status=1).first():
         return jsonify({"error": "Already paid"}), 400
     
-    total = sum(float(d.price) * d.quantity for d in order.details)
+    subtotal = sum(float(d.price) * d.quantity for d in order.details)
+    discount_amount = float(order.discount_amount) if order.discount_amount else 0
+    final_total = max(0, subtotal - discount_amount)
     
     # Role based method logic
     if role == "customer":
@@ -133,7 +168,7 @@ def pay_order(id):
     
     new_payment = PaymentCustomer(
         order_id=id,
-        amount=total,
+        amount=final_total,
         method=method,
         status=1,
         employee_id=get_jwt_identity(), # Use person who is marking it as paid

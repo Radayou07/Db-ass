@@ -1,0 +1,87 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* --- Sidebar / Navigation --- */
+  --color-side-text: #64748b; /* Slate 500 */
+  --color-side-icon: #38bdf8;
+  --color-slider-bg: #f8fafc; /* Slate 50 */
+  --color-slider-dark-bg: #020617;
+
+  /* --- Page Surface --- */
+  --color-main-bg: #f8fafc; /* Slate 50 */
+  --color-main-dark-bg: #020617; /* Slate 950 */
+
+  /* --- Container / Card Surface --- */
+  --color-box-bg: #ffffff;
+  --color-box-dark-bg: #0f172a; /* Slate 900 */
+
+  /* --- Borders --- */
+  --color-box-border: #e2e8f0; /* Slate 200 */
+  --color-box-dark-border: #1e293b; /* Slate 800 */
+
+  /* --- Accents / Stat Cards --- */
+  --color-accent-blue: #38bdf8;
+  --color-accent-emerald: #10b981;
+  --color-accent-rose: #f43f5e;
+  --color-accent-amber: #f59e0b;
+}
+
+/* Base Body Styles */
+body {
+  background-color: var(--color-main-bg);
+  color: #1e293b; /* Slate 800 */
+}
+
+.dark body {
+  background-color: var(--color-main-dark-bg);
+  color: #f1f5f9; /* Slate 100 */
+}
+
+/* Global Transition */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Component Level Utilities */
+.card-base {
+  background-color: var(--color-box-bg);
+  border: 1px solid var(--color-box-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+.dark .card-base {
+  background-color: var(--color-box-dark-bg);
+  border-color: var(--color-box-dark-border);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}

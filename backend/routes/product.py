@@ -109,6 +109,13 @@ def create_product():
                 print(f"Error: Invalid date format: {data['expire']}")
                 return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
 
+        discount_expires_at = None
+        if data.get("discount_expires_at"):
+            try:
+                discount_expires_at = datetime.strptime(data["discount_expires_at"], "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Invalid discount_expires_at format. Use YYYY-MM-DD."}), 400
+
         print(f"Creating product object: name={name}, price={price}, cat={category_id}, uom={uom_id}")
         new_product = Product(
             name=name,
@@ -118,7 +125,9 @@ def create_product():
             expire=expire_date,
             category_id=int(category_id),
             uom_id=int(uom_id),
-            supplier_id=data.get("supplier_id")
+            supplier_id=data.get("supplier_id"),
+            discount_percent=data.get("discount_percent", 0),
+            discount_expires_at=discount_expires_at
         )
 
         print("Adding product to session...")
@@ -241,6 +250,17 @@ def update_product(id):
         if "uom_id" in data: product.uom_id = int(data["uom_id"])
         if "supplier_id" in data: product.supplier_id = data["supplier_id"]
         
+        if "discount_percent" in data: product.discount_percent = float(data["discount_percent"])
+        
+        if "discount_expires_at" in data:
+            if data["discount_expires_at"]:
+                try:
+                    product.discount_expires_at = datetime.strptime(data["discount_expires_at"], "%Y-%m-%d").date()
+                except ValueError:
+                    return jsonify({"error": "Invalid discount_expires_at format."}), 400
+            else:
+                product.discount_expires_at = None
+
         if "expire" in data:
             if data["expire"]:
                 try:

@@ -227,9 +227,9 @@ export default function Orders() {
   const isInternal = user?.role === "admin" || user?.role === "staff"
   const isCustomer = user?.role === "customer"
 
-  useEffect(() => {
-    fetchOrders()
-  }, [])
+  const paid     = orders.filter(o => o.payment_status === 1)
+  const unpaid   = orders.filter(o => o.payment_status === 0)
+  const revenue  = paid.reduce((s, o) => s + orderTotal(o), 0)
 
   async function fetchOrders() {
     setLoading(true)
@@ -243,9 +243,10 @@ export default function Orders() {
     }
   }
 
-  const paid     = orders.filter(o => o.payment_status === 1)
-  const unpaid   = orders.filter(o => o.payment_status === 0)
-  const revenue  = paid.reduce((s, o) => s + orderTotal(o), 0)
+  useEffect(() => {
+    fetchOrders()
+  }, [])
+
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -287,73 +288,77 @@ export default function Orders() {
   }
 
   return (
-    <div className="h-screen p-5 flex flex-col gap-5 text-slate-700 dark:text-slate-100">
-      <div className="flex items-center justify-between">
+    <div className="min-h-screen p-6 pb-20">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-xl font-bold text-slate-800 dark:text-white">{isInternal ? "Customer Orders" : "My Orders"}</h1>
-          <p className="text-xs text-slate-400 dark:text-slate-300 mt-0.5">{isInternal ? "Manage store sales" : "View your past purchases"}</p>
+          <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight uppercase">{isInternal ? "Customer Orders" : "My Orders"}</h1>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">{isInternal ? "Manage store sales" : "View your past purchases"}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 shrink-0">
-        <StatCard icon={FiShoppingBag} label="Total Orders" value={orders.length} iconClass="text-sky-400 bg-sky-50 dark:bg-sky-950/40" cardClass="border-box-border bg-box-border-bg"/>
-        <StatCard icon={FiCheckCircle} label="Paid" value={paid.length} iconClass="text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40" cardClass="border-box-border bg-box-border-bg"/>
-        <StatCard icon={FiClock} label="Unpaid" value={unpaid.length} iconClass="text-orange-400 bg-orange-50 dark:bg-orange-950/40" cardClass="border-box-border-warn bg-box-border-warn-bg"/>
-        <StatCard icon={isInternal ? FiDollarSign : FiUser} label={isInternal ? "Total Revenue" : "My Account"} value={isInternal ? `$${revenue.toLocaleString()}` : user?.name} iconClass="text-violet-400 bg-violet-50 dark:bg-violet-950/40" cardClass="border-box-border bg-box-border-bg"/>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0 mb-8">
+        <StatCard icon={FiShoppingBag} label="Total Orders" value={orders.length} iconClass="text-sky-500 bg-sky-50 dark:bg-sky-900/20" cardClass="bg-white dark:bg-slate-900 shadow-sm border-black/5 dark:border-white/5"/>
+        <StatCard icon={FiCheckCircle} label="Paid" value={paid.length} iconClass="text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20" cardClass="bg-white dark:bg-slate-900 shadow-sm border-black/5 dark:border-white/5"/>
+        <StatCard icon={FiClock} label="Unpaid" value={unpaid.length} iconClass="text-orange-500 bg-orange-50 dark:bg-orange-900/20" cardClass="bg-white dark:bg-slate-900 shadow-sm border-black/5 dark:border-white/5"/>
+        <StatCard icon={isInternal ? FiDollarSign : FiUser} label={isInternal ? "Total Revenue" : "My Account"} value={isInternal ? `$${revenue.toLocaleString()}` : user?.name} iconClass="text-violet-500 bg-violet-50 dark:bg-violet-900/20" cardClass="bg-white dark:bg-slate-900 shadow-sm border-black/5 dark:border-white/5"/>
       </div>
 
-      <div className="flex items-center gap-3 shrink-0">
-        <div className="flex-1 flex items-center gap-3 px-4 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-box-bg dark:bg-box-dark-bg shadow-sm">
-          <FiSearch size={16} className="text-slate-400 shrink-0"/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search orders..." className="flex-1 bg-transparent text-sm outline-none"/>
+      <div className="flex flex-col md:flex-row items-center gap-4 mb-6">
+        <div className="w-full md:w-auto flex-1 flex items-center gap-3 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm focus-within:border-sky-500 focus-within:ring-4 ring-sky-500/10 transition-all">
+          <FiSearch size={18} className="text-slate-400 shrink-0"/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search orders..." className="flex-1 bg-transparent text-sm font-medium text-slate-800 dark:text-white outline-none placeholder:text-slate-400"/>
         </div>
-        <div className="flex gap-1 p-1 rounded-xl bg-box-bg dark:bg-box-dark-bg border border-black/10 dark:border-white/10">
+        <div className="w-full md:w-auto flex gap-1 p-1.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
           {["all", "paid", "unpaid"].map(t => (
-            <button key={t} onClick={() => setFilter(t)} className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${filter === t ? "bg-sky-500 text-white" : "text-slate-400 hover:text-slate-600"}`}>{t}</button>
+            <button key={t} onClick={() => setFilter(t)} className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${filter === t ? "bg-sky-500 text-white shadow-md shadow-sky-200 dark:shadow-none" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"}`}>{t}</button>
           ))}
         </div>
       </div>
 
-      <Card className="flex-1 flex flex-col overflow-hidden">
-        <div className="overflow-auto flex-1">
-          {loading ? <div className="flex items-center justify-center h-full animate-pulse text-sky-500"><FiActivity size={40}/></div> : (
-            <table className="w-full min-w-[620px]">
-              <thead className="sticky top-0 bg-transparent/90 dark:bg-slate-900/60 backdrop-blur-sm z-10">
-                <tr className="border-b border-black/[.06]">
-                  <SortTh label="Order #" field="id" sort={sort} onSort={handleSort} className="pl-5"/>
+      <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-900 rounded-[2rem] border border-black/5 dark:border-white/5 shadow-xl shadow-slate-200/40 dark:shadow-none">
+        <div className="overflow-x-auto flex-1 custom-scrollbar">
+          {loading ? <div className="flex flex-col items-center justify-center py-24 text-center"><FiActivity className="w-10 h-10 text-sky-500 animate-spin mb-4"/><p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Syncing Data...</p></div> : (
+            <table className="w-full min-w-[700px]">
+              <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 border-b border-black/5 dark:border-white/5 z-10">
+                <tr>
+                  <SortTh label="Order #" field="id" sort={sort} onSort={handleSort} className="pl-8"/>
                   {isInternal && <SortTh label="Customer" field="customer" sort={sort} onSort={handleSort}/>}
                   <SortTh label="Date" field="date" sort={sort} onSort={handleSort}/>
-                  <th className="px-4 py-3 text-left text-[11px] font-bold text-slate-400 uppercase">Items</th>
+                  <th className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Items</th>
                   <SortTh label="Total" field="total" sort={sort} onSort={handleSort}/>
-                  <th className="px-4 py-3 text-left text-[11px] font-bold text-slate-400 uppercase">Status</th>
-                  <th className="px-4 py-3 text-center text-[11px] font-bold text-slate-400 uppercase">Payment</th>
-                  <th className="px-4 py-3 pr-5 text-right text-[11px] font-bold text-slate-400 uppercase">Actions</th>
+                  <th className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-4 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment</th>
+                  <th className="px-8 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-black/[.04] dark:divide-white/[.04]">
-                {filtered.map(o => (
-                  <tr key={o.id} className="hover:bg-black/[.01] dark:hover:bg-white/[.02] transition-colors group">
-                    <td className="px-4 py-3 pl-5 font-mono text-sm dark:text-slate-200">#{String(o.id).padStart(4,"0")}</td>
-                    {isInternal && <td className="px-4 py-3 text-sm font-bold dark:text-slate-100">{o.customer_name}</td>}
-                    <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-300">{o.date}</td>
-                    <td className="px-4 py-3"><span className="w-6 h-6 rounded-full bg-transparent flex items-center justify-center text-[10px] font-black dark:text-slate-200">{o.details?.length}</span></td>
-                    <td className="px-4 py-3 text-sm font-black dark:text-slate-100">${orderTotal(o).toFixed(2)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${o.payment_status ? "bg-emerald-100 text-emerald-600" : "bg-orange-100 text-orange-600"}`}>
+              <tbody className="divide-y divide-black/5 dark:divide-white/5">
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-24 text-center text-slate-400 font-medium">No orders found.</td>
+                  </tr>
+                ) : filtered.map(o => (
+                  <tr key={o.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                    <td className="px-4 py-4 pl-8 font-black text-slate-800 dark:text-slate-200 text-sm">#{String(o.id).padStart(4,"0")}</td>
+                    {isInternal && <td className="px-4 py-4 text-sm font-bold text-slate-700 dark:text-slate-300">{o.customer_name}</td>}
+                    <td className="px-4 py-4 text-xs font-bold text-slate-500 dark:text-slate-400">{o.date}</td>
+                    <td className="px-4 py-4"><span className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-600 dark:text-slate-300 border border-black/5 dark:border-white/5">{o.details?.length}</span></td>
+                    <td className="px-4 py-4 text-base font-black text-slate-900 dark:text-white">${orderTotal(o).toFixed(2)}</td>
+                    <td className="px-4 py-4">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${o.payment_status ? "bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-800" : "bg-orange-50 border-orange-100 text-orange-600 dark:bg-orange-900/20 dark:border-orange-800"}`}>
                         {o.payment_status ? "Paid" : "Unpaid"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-4 py-4 text-center">
                        {!o.payment_status ? (
                          <button 
                            onClick={() => isInternal ? setStaffPayTarget(o) : setPayTarget(o)}
-                           className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-50 transition-colors"
-                         ><FiCreditCard/></button>
-                       ) : <FiCheck className="text-emerald-500 mx-auto"/>}
+                           className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-emerald-500 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 shadow-sm flex items-center justify-center mx-auto transition-all active:scale-95"
+                         ><FiCreditCard size={18}/></button>
+                       ) : <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 flex items-center justify-center mx-auto"><FiCheck size={20}/></div>}
                     </td>
-                    <td className="px-4 py-3 pr-5 text-right">
-                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={()=>setViewOrder(o)} className="p-1.5 rounded-lg text-slate-400 hover:text-sky-500"><FiEye/></button>
-                        {isInternal && <button onClick={()=>setDelTarget(o)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500"><FiTrash2/></button>}
+                    <td className="px-8 py-4 text-right">
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={()=>setViewOrder(o)} className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-sky-500 hover:border-sky-500 shadow-sm flex items-center justify-center transition-all active:scale-95"><FiEye size={16}/></button>
+                        {isInternal && <button onClick={()=>setDelTarget(o)} className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-rose-500 hover:border-rose-500 shadow-sm flex items-center justify-center transition-all active:scale-95"><FiTrash2 size={16}/></button>}
                       </div>
                     </td>
                   </tr>
@@ -362,7 +367,7 @@ export default function Orders() {
             </table>
           )}
         </div>
-      </Card>
+      </div>
 
       {viewOrder && <OrderDetailModal order={viewOrder} onTogglePaid={(o)=>isInternal ? setStaffPayTarget(o) : setPayTarget(o)} onClose={()=>setViewOrder(null)} isInternal={isInternal}/>}
       {payTarget && <PaymentQRModal amount={orderTotal(payTarget)} orderId={payTarget.id} onDone={()=>processPayment(payTarget.id, "Transfer")} onClose={()=>setPayTarget(null)}/>}
