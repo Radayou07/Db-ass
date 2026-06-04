@@ -23,8 +23,13 @@ export default function Login() {
       
       // If customer, redirect to the external customer site
       if (user?.role === "customer") {
-        const customerUrl = import.meta.env.VITE_CUSTOMER_URL || "https://your-customer-site.onrender.com"
-        window.location.href = customerUrl
+        const customerUrl = import.meta.env.VITE_CUSTOMER_URL
+        if (customerUrl) {
+          window.location.href = customerUrl
+        } else {
+          setError("Customers must use the dedicated customer portal.")
+          logout() // Log them out since they are in the wrong place
+        }
       } else if (user) {
         navigate("/")
       } else {
