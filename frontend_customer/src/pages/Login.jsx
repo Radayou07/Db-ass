@@ -19,8 +19,20 @@ export default function Login() {
     setError("")
     setLoading(true)
     try {
-      await login(email, password)
-      navigate("/")
+      const user = await login(email, password)
+      
+      // If staff/admin, redirect to the external admin site
+      if (user?.role === "admin" || user?.role === "staff") {
+        const adminUrl = import.meta.env.VITE_ADMIN_URL
+        if (adminUrl) {
+          window.location.href = adminUrl
+        } else {
+          // If no admin URL is set, just let them in but they might want to know
+          navigate("/")
+        }
+      } else {
+        navigate("/")
+      }
     } catch (err) {
       setError(err.message || "Invalid email or password")
     } finally {
@@ -52,11 +64,11 @@ export default function Login() {
         {/* Tagline */}
         <div>
           <h2 className="text-white text-3xl font-bold leading-tight">
-            Manage your business,<br />
-            <span style={{ color: "#38bdf8" }}>not your paperwork.</span>
+            Shop the best,<br />
+            <span style={{ color: "#38bdf8" }}>delivered to your door.</span>
           </h2>
           <p className="text-slate-400 text-sm mt-4 leading-relaxed">
-            Track products, orders, suppliers, and customers — all in one place.
+            Premium products and exceptional service for our valued customers.
           </p>
         </div>
 
@@ -79,12 +91,12 @@ export default function Login() {
               <MdInventory2 className="text-white text-lg" />
             </div>
             <span className="font-semibold text-gray-800 text-sm">
-              Inventory Manager
+              Customer Portal
             </span>
           </div>
 
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Welcome back</h1>
-          <p className="text-sm text-gray-500 mb-8">Sign in to your staff account</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Welcome</h1>
+          <p className="text-sm text-gray-500 mb-8">Sign in to your customer account</p>
 
           {/* Error */}
           {error && (
@@ -106,7 +118,7 @@ export default function Login() {
                   type="text"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="you@company.com or 012345678"
+                  placeholder="you@email.com or 012345678"
                   required
                   className="w-full pl-10 pr-4 py-2.5 bg-transparent border border-gray-200 rounded-xl text-sm
                              text-gray-900 placeholder-gray-400
