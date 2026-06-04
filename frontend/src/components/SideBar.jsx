@@ -11,14 +11,14 @@ import DarkMode from "./DarkMode"
 import { useAuth } from "../context/AuthContext"
 
 const ADMIN_NAV = [
-  { to: "/",          Icon: IoMdHome,       label: "Home" },
-  { to: "/products",   Icon: MdShoppingCart, label: "Products" },
-  { to: "/inventories", Icon: BsBoxSeam,      label: "Inventory" },
-  { to: "/orders",     Icon: GiShoppingBag,  label: "Orders" },
-  { to: "/customers",  Icon: IoMdPeople,     label: "Customers" },
-  { to: "/suppliers",  Icon: FaHandsHelping, label: "Suppliers" },
-  { to: "/discounts",  Icon: FiTag,          label: "Discounts" },
-  { to: "/analysis",  Icon: MdAnalytics,    label: "Analysis" },
+  { to: "/staff",          Icon: IoMdHome,       label: "Home" },
+  { to: "/staff/products",   Icon: MdShoppingCart, label: "Products" },
+  { to: "/staff/inventories", Icon: BsBoxSeam,      label: "Inventory" },
+  { to: "/staff/orders",     Icon: GiShoppingBag,  label: "Orders" },
+  { to: "/staff/customers",  Icon: IoMdPeople,     label: "Customers" },
+  { to: "/staff/suppliers",  Icon: FaHandsHelping, label: "Suppliers" },
+  { to: "/staff/discounts",  Icon: FiTag,          label: "Discounts" },
+  { to: "/staff/analysis",  Icon: MdAnalytics,    label: "Analysis" },
 ]
 
 // Get initials from a name e.g. "John Doe" → "JD"
@@ -41,11 +41,8 @@ export default function SideBar({ isDark, setIsDark }) {
   let menu = [...ADMIN_NAV]
   
   if (isAdmin) {
-    menu.push({ to: "/staff", Icon: FiShield, label: "Staff" })
+    menu.push({ to: "/staff/staff", Icon: FiShield, label: "Staff" })
   }
-
-  // External link to Customer Frontend
-  const customerUrl = import.meta.env.VITE_CUSTOMER_URL
 
   return (
     <aside
@@ -121,33 +118,29 @@ export default function SideBar({ isDark, setIsDark }) {
           )
         })}
 
-        {/* Customer Site Link */}
-        {customerUrl && (
-          <a
-            href={customerUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={!isOpen ? "Customer Site" : undefined}
-            className="relative flex items-center gap-3 px-3 py-2.5 rounded-xl
-                       text-sm font-medium whitespace-nowrap text-side-text
-                       hover:bg-slate-100 dark:hover:bg-white/[.06] hover:text-slate-900 dark:hover:text-white
-                       transition-colors duration-150 group mt-4 border-t border-slate-200 dark:border-white/5 pt-4"
-          >
-            <FiExternalLink className="shrink-0 w-5 h-5 text-slate-400 group-hover:text-side-icon" />
-            <span className={`
-              overflow-hidden transition-[max-width,opacity] duration-300 ease-in-out
-              ${isOpen ? "max-w-xs opacity-100" : "max-w-0 opacity-0"}
-            `}>
-              Customer Site
-            </span>
-          </a>
-        )}
+        {/* Link to Customer Side of the same app */}
+        <Link
+          to="/customer"
+          title={!isOpen ? "View Storefront" : undefined}
+          className="relative flex items-center gap-3 px-3 py-2.5 rounded-xl
+                     text-sm font-medium whitespace-nowrap text-side-text
+                     hover:bg-slate-100 dark:hover:bg-white/[.06] hover:text-slate-900 dark:hover:text-white
+                     transition-colors duration-150 group mt-4 border-t border-slate-200 dark:border-white/5 pt-4"
+        >
+          <FiExternalLink className="shrink-0 w-5 h-5 text-slate-400 group-hover:text-side-icon" />
+          <span className={`
+            overflow-hidden transition-[max-width,opacity] duration-300 ease-in-out
+            ${isOpen ? "max-w-xs opacity-100" : "max-w-0 opacity-0"}
+          `}>
+            View Storefront
+          </span>
+        </Link>
       </nav>
 
       {/* ── User info + logout ── */}
       <div className="shrink-0 border-t border-slate-200 dark:border-white/5 px-2 py-3 space-y-1">
         <Link
-          to="/profile"
+          to="/staff/profile"
           title={!isOpen ? "Profile" : undefined}
           className={`
             flex items-center gap-3 px-3 py-2 rounded-xl

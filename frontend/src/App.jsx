@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom' 
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import SideBar  from './components/SideBar'
+import Header   from './components/Header'
 
 // Public pages
 import Login    from './pages/Login'
 import Register from './pages/Register'
 
-// Protected pages
+// Admin/Staff pages
 import Home      from './pages/Home'
 import Products  from './pages/Products'
 import ProductDetail from './pages/ProductDetail'
@@ -22,8 +23,14 @@ import Analysis  from './pages/Analysis'
 import Discounts from './pages/Discounts'
 import Profile   from './pages/Profile'
 
-// ── Layout wrapper ───────────────────────────────────────────────────
-function AppLayout({ isDark, setIsDark }) {
+// Customer pages
+import CustomerHome from './pages/CustomerHome'
+import CustomerProducts from './pages/CustomerProducts'
+import Cart from './pages/Cart'
+
+// ── Layout wrappers ───────────────────────────────────────────────────
+
+function StaffLayout({ isDark, setIsDark }) {
   return (
     <div className="flex flex-row h-screen bg-main-bg dark:bg-main-dark-bg overflow-hidden">
       <SideBar isDark={isDark} setIsDark={setIsDark} />
@@ -34,7 +41,33 @@ function AppLayout({ isDark, setIsDark }) {
   )
 }
 
-function App() {
+function CustomerLayout({ isDark, setIsDark }) {
+  return (
+    <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
+      <Header isDark={isDark} setIsDark={setIsDark} />
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto w-full h-full">
+          <Outlet /> 
+        </div>
+      </main>
+    </div>
+  )
+}
+
+// ── Root Redirect Logic ──────────────────────────────────────────────
+
+function RootRedirect() {
+  const { isAuthenticated, user } = useAuth()
+  
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  
+  if (user?.role === 'admin' || user?.role === 'staff') {
+    return <Navigate to="/staff" replace />
+  }
+  return <Navigate to="/customer" replace />
+}
+
+function AppContent() {
   const [isDark, setIsDark] = useState(() => {
     return localStorage.getItem('theme') === 'dark'
   })
@@ -45,92 +78,65 @@ function App() {
 
   return (
     <div className={isDark ? 'dark' : ''}>
-      <AuthProvider>
-        <Router>
-          <Routes>
+      <Router>
+        <Routes>
+          {/* ── Public routes ── */}
+          <Route path="/login"    element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/"         element={<RootRedirect />} />
 
-            {/* ── Public routes ── */}
-            <Route path="/login"    element={<Login />} />
-            <Route path="/register" element={<Register />} />
+          {/* ── Staff Routes ── */}
+          <Route 
+            path="/staff" 
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'staff']}>
+                <StaffLayout isDark={isDark} setIsDark={setIsDark} />
+              </ProtectedRoute>
+            }
+          >
+            <Route index             element={<Home />} />
+            <Route path="products"   element={<Products />} />
+            <Route path="products/:id" element={<ProductDetail />} />
+            <Route path="inventories" element={<Inventories />} />
+            <Route path="orders"     element={<Orders />} />
+            <Route path="customers"  element={<Customers />} />
+            <Route path="suppliers"  element={<Suppliers />} />
+            <Route path="staff"      element={<ProtectedRoute allowedRoles={['admin']}><Staff /></ProtectedRoute>} />
+            <Route path="analysis"   element={<Analysis />} />
+            <Route path="discounts"  element={<Discounts />} />
+            <Route path="profile"    element={<Profile />} />
+          </Route>
 
-            {/* ── Protected Layout Route Tree ── */}
-            <Route 
-              path="/" 
-              element={
-                <ProtectedRoute allowedRoles={['admin', 'staff']}>
-                  <AppLayout isDark={isDark} setIsDark={setIsDark} />
-                </ProtectedRoute>
-              }
-            >
-              <Route index             element={<Home />} />
-              <Route path="products"   element={<Products />} />
-              <Route path="products/:id" element={<ProductDetail />} />
-              
-              <Route 
-                path="inventories" 
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'staff']}>
-                    <Inventories />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route path="orders"     element={<Orders />} />
-              
-              <Route 
-                path="customers" 
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'staff']}>
-                    <Customers />
-                  </ProtectedRoute>
-                } 
-              />
+          {/* ── Customer Routes ── */}
+          <Route 
+            path="/customer" 
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <CustomerLayout isDark={isDark} setIsDark={setIsDark} />
+              </ProtectedRoute>
+            }
+          >
+            <Route index             element={<CustomerHome />} />
+            <Route path="products"   element={<CustomerProducts />} />
+            <Route path="products/:id" element={<ProductDetail />} />
+            <Route path="cart"       element={<Cart />} />
+            <Route path="orders"     element={<Orders />} />
+            <Route path="profile"    element={<Profile />} />
+          </Route>
 
-              <Route 
-                path="suppliers" 
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'staff']}>
-                    <Suppliers />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="staff" 
-                element={
-                  <ProtectedRoute allowedRoles={['admin']}>
-                    <Staff />
-                  </ProtectedRoute>
-                } 
-              />
-
-              <Route 
-                path="analysis" 
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'staff']}>
-                    <Analysis />
-                  </ProtectedRoute>
-                } 
-              />
-
-              <Route 
-                path="discounts" 
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'staff']}>
-                    <Discounts />
-                  </ProtectedRoute>
-                } 
-              />
-
-              <Route path="profile"    element={<Profile />} />
-              
-              <Route path="*"          element={<Navigate to="/" replace />} />
-            </Route>
-
-          </Routes>
-        </Router>
-      </AuthProvider>
+          {/* ── Catch all ── */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   )
 }
 

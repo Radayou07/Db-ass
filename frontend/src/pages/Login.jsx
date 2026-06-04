@@ -21,19 +21,12 @@ export default function Login() {
     try {
       const user = await login(email, password)
       
-      // If customer, redirect to the external customer site
-      if (user?.role === "customer") {
-        const customerUrl = import.meta.env.VITE_CUSTOMER_URL
-        if (customerUrl) {
-          window.location.href = customerUrl
-        } else {
-          setError("Customers must use the dedicated customer portal.")
-          logout() // Log them out since they are in the wrong place
-        }
-      } else if (user) {
-        navigate("/")
+      if (user?.role === "admin" || user?.role === "staff") {
+        navigate("/staff")
+      } else if (user?.role === "customer") {
+        navigate("/customer")
       } else {
-        setError("Login failed: User data not found")
+        navigate("/")
       }
     } catch (err) {
       setError(err.message || "Invalid email or password")
@@ -98,7 +91,7 @@ export default function Login() {
           </div>
 
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Welcome back</h1>
-          <p className="text-sm text-gray-500 mb-8">Sign in to your staff account</p>
+          <p className="text-sm text-gray-500 mb-8">Sign in to your account</p>
 
           {/* Error */}
           {error && (
