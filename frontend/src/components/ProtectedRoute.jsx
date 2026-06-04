@@ -17,8 +17,16 @@ export default function ProtectedRoute({ children, allowedRoles = [] }) {
   }
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
+    // If it's a customer, redirect to the customer portal if possible, else login
+    if (user?.role === "customer") {
+      const customerUrl = import.meta.env.VITE_CUSTOMER_URL
+      if (customerUrl) {
+        window.location.href = customerUrl
+        return null
+      }
+    }
     // Role not authorized for this specific route
-    return <Navigate to="/" replace />
+    return <Navigate to="/login" replace />
   }
 
   return children

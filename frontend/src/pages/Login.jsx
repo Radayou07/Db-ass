@@ -22,11 +22,13 @@ export default function Login() {
       const user = await login(email, password)
       
       // If customer, redirect to the external customer site
-      if (user.role === "customer") {
+      if (user?.role === "customer") {
         const customerUrl = import.meta.env.VITE_CUSTOMER_URL || "https://your-customer-site.onrender.com"
         window.location.href = customerUrl
-      } else {
+      } else if (user) {
         navigate("/")
+      } else {
+        setError("Login failed: User data not found")
       }
     } catch (err) {
       setError(err.message || "Invalid email or password")
