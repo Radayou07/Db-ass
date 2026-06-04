@@ -92,6 +92,11 @@ def create_order():
             product = Product.query.get(pid)
             if not product: continue
             
+            # Check total available stock across all inventory records
+            total_stock = db.session.query(db.func.sum(Inventory.inventory_quantity)).filter_by(product_id=pid).scalar() or 0
+            if total_stock < qty:
+                return jsonify({"error": f"Insufficient stock for {product.name}. Available: {total_stock}"}), 400
+
             # Use sale_price logic
             sale_price = float(product.price)
             if product.discount_percent and float(product.discount_percent) > 0:

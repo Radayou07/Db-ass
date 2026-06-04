@@ -214,7 +214,9 @@ export default function ProductDetail() {
 
                 <div className="absolute top-6 left-6 flex flex-col gap-2">
                    <span className="px-4 py-1.5 bg-sky-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-sky-200 dark:shadow-none">{product.category_name}</span>
-                   {product.stock <= 5 && product.stock > 0 && (
+                   {product.stock <= 0 ? (
+                     <span className="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-slate-200 dark:shadow-none animate-pulse">Out of Stock</span>
+                   ) : product.stock <= 5 && (
                      <span className="px-4 py-1.5 bg-rose-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-rose-200 dark:shadow-none animate-pulse">Low Stock</span>
                    )}
                 </div>
@@ -296,7 +298,7 @@ export default function ProductDetail() {
                            ? "bg-sky-500 hover:bg-sky-600 text-white shadow-2xl shadow-sky-200 dark:shadow-none active:scale-95" 
                            : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"}`}
                      >
-                        <FiShoppingCart size={18} /> Buy Now
+                        <FiShoppingCart size={18} /> {product.stock > 0 ? "Buy Now" : "Out of Stock"}
                      </button>
                    ) : (
                      <button 

@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
-import { FiShoppingCart, FiTrash2, FiMinusCircle, FiPlusCircle, FiCheck, FiX, FiActivity, FiCreditCard } from "react-icons/fi"
+import { useToast } from "../context/ToastContext"
+import { FiShoppingCart, FiTrash2, FiMinusCircle, FiPlusCircle, FiCheck, FiX, FiActivity, FiCreditCard, FiAlertCircle } from "react-icons/fi"
 
 export default function Cart() {
   const { authFetch } = useAuth()
+  const { toast } = useToast()
   const navigate = useNavigate()
   
   const [cartItems, setCartItems] = useState([])
@@ -81,6 +83,11 @@ export default function Cart() {
   }
 
   const handleOrder = async (isPaid = false) => {
+    if (hasOutOfStockItems) {
+      toast("Please remove out of stock items before checkout.", "error")
+      return
+    }
+
     setPlaceOrderLoading(true)
     try {
       const res = await authFetch("/orders", {
@@ -92,15 +99,15 @@ export default function Cart() {
         })
       })
       if (res.ok) {
-        alert(isPaid ? "Order placed and paid successfully!" : "Order placed successfully!")
+        toast(isPaid ? "Order placed and paid successfully!" : "Order placed successfully!")
         window.dispatchEvent(new Event('cart_updated'))
         navigate("/orders")
       } else {
         const err = await res.json()
-        alert(err.error || "Failed to place order")
+        toast(err.error || "Failed to place order", "error")
       }
     } catch (err) {
-      alert("Network error")
+      toast("Network error", "error")
     } finally {
       setPlaceOrderLoading(false)
       setShowQR(false)
@@ -113,6 +120,8 @@ export default function Cart() {
   const productSavings = originalSubtotal - productSubtotal
   
   const finalTotal = discountInfo ? discountInfo.final_total : productSubtotal
+  
+  const hasOutOfStockItems = cartItems.some(item => item.product.stock <= 0)
 
   if (loading) {
     return <div className="h-screen flex items-center justify-center text-sky-500 animate-pulse"><FiActivity size={40} /></div>
@@ -126,7 +135,7 @@ export default function Cart() {
         </div>
         <h2 className="text-3xl font-black text-slate-800 dark:text-white uppercase tracking-tight mb-2">Your cart is empty</h2>
         <p className="text-slate-500 dark:text-slate-400 font-medium mb-8">Looks like you haven't added anything to your cart yet.</p>
-        <Link to="/products" className="px-8 py-4 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-sky-200 dark:shadow-none transition-all active:scale-95">
+        <Link to="/customer/products" className="px-8 py-4 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-sky-200 dark:shadow-none transition-all active:scale-95">
           Start Shopping
         </Link>
       </div>
@@ -135,20 +144,37 @@ export default function Cart() {
 
   return (
     <div className="min-h-screen p-6 pb-20 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight uppercase mb-8">Shopping Cart</h1>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-black/5 dark:border-white/5 pb-6 mb-8">
+        <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight uppercase flex items-center gap-3">
+          Shopping Cart 
+          <span className="text-sm font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">{cartItems.length}</span>
+        </h1>
+      </div>
       
+      {hasOutOfStockItems && (
+        <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/30 p-5 rounded-3xl flex items-center gap-4 text-rose-600 dark:text-rose-400 mb-8 animate-pulse">
+           <FiAlertCircle size={24} className="shrink-0" />
+           <p className="text-sm font-bold uppercase tracking-widest">Some items in your cart are out of stock. Please remove them to continue checkout.</p>
+        </div>
+      )}
+
       <div className="flex flex-col lg:flex-row gap-8">
         
         {/* Cart Items */}
         <div className="flex-1 flex flex-col gap-4">
           {cartItems.map((item) => (
-            <div key={item.id} className="flex flex-col sm:flex-row gap-6 p-4 sm:p-6 bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 rounded-3xl shadow-sm hover:shadow-md transition-shadow">
+            <div key={item.id} className={`flex flex-col sm:flex-row gap-6 p-4 sm:p-6 bg-white dark:bg-slate-900 border rounded-3xl shadow-sm hover:shadow-md transition-all ${item.product.stock <= 0 ? 'border-rose-300 dark:border-rose-900/50 opacity-80' : 'border-black/5 dark:border-white/5'}`}>
               {/* Image */}
-              <div className="w-full sm:w-32 h-32 bg-slate-50 dark:bg-slate-800 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center">
+              <div className="w-full sm:w-32 h-32 bg-slate-50 dark:bg-slate-800 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center relative">
                 {item.product.images?.[0] ? (
                   <img src={item.product.images[0].url} alt={item.product.name} className="w-full h-full object-cover" />
                 ) : (
                   <FiShoppingCart className="text-slate-300" size={32} />
+                )}
+                {item.product.stock <= 0 && (
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                    <span className="text-[10px] font-black text-white uppercase tracking-[0.2em] -rotate-12">Out of Stock</span>
+                  </div>
                 )}
               </div>
 
@@ -157,8 +183,10 @@ export default function Cart() {
                 <div className="flex justify-between items-start gap-4">
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{item.product.category_name || "Misc"}</p>
-                    <Link to={`/products/${item.product.id}`} className="text-lg font-bold text-slate-800 dark:text-white hover:text-sky-500 transition-colors line-clamp-1">{item.product.name}</Link>
-                    <p className="text-xs text-slate-500 mt-1">Available: {item.product.stock} {item.product.uom_abbreviation}</p>
+                    <Link to={`/customer/products/${item.product.id}`} className="text-lg font-bold text-slate-800 dark:text-white hover:text-sky-500 transition-colors line-clamp-1">{item.product.name}</Link>
+                    <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${item.product.stock <= 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+                      {item.product.stock <= 0 ? 'Sold Out' : `Available: ${item.product.stock} ${item.product.uom_abbreviation}`}
+                    </p>
                   </div>
                   <button onClick={() => removeItem(item.product.id)} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all">
                     <FiTrash2 size={18} />
@@ -194,7 +222,7 @@ export default function Cart() {
 
         {/* Order Summary Sidebar */}
         <div className="w-full lg:w-[380px] shrink-0">
-          <div className="bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 rounded-[2rem] p-6 sm:p-8 shadow-xl sticky top-8">
+          <div className="bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 rounded-[2.5rem] p-6 sm:p-8 shadow-xl sticky top-8">
             <h2 className="text-lg font-black uppercase tracking-tighter mb-6 text-slate-800 dark:text-white">Order Summary</h2>
 
             {/* Coupon Code */}
@@ -250,14 +278,14 @@ export default function Cart() {
             <div className="space-y-3">
               <button 
                 onClick={() => setShowQR(true)}
-                disabled={placingOrder}
+                disabled={placingOrder || hasOutOfStockItems}
                 className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 dark:shadow-none hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
               >
                 <FiCreditCard size={16}/> Instant Checkout
               </button>
               <button 
                 onClick={() => handleOrder(false)}
-                disabled={placingOrder}
+                disabled={placingOrder || hasOutOfStockItems}
                 className="w-full py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black uppercase tracking-widest text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95 border border-black/5 dark:border-white/5 disabled:opacity-50"
               >
                 Confirm Reservation
@@ -278,8 +306,8 @@ export default function Cart() {
             <h3 className="text-xl font-black uppercase tracking-tighter text-slate-800 dark:text-white mb-2 mt-4">Scan to Pay</h3>
             <p className="text-sm font-bold text-sky-500 mb-6">${finalTotal.toFixed(2)}</p>
             
-            <div className="w-48 h-48 mx-auto bg-slate-100 dark:bg-slate-800 rounded-2xl mb-8 flex items-center justify-center overflow-hidden border-4 border-white dark:border-slate-700 shadow-lg">
-              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=PAYMENT_DEMO_${finalTotal}`} alt="QR Code" className="w-full h-full mix-blend-multiply dark:mix-blend-screen opacity-50" />
+            <div className="w-48 h-48 mx-auto bg-white rounded-2xl mb-8 flex items-center justify-center overflow-hidden border-4 border-slate-100 dark:border-slate-800 shadow-lg p-2">
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=PAYMENT_DEMO_${finalTotal}`} alt="QR Code" className="w-full h-full mix-blend-multiply" />
             </div>
             
             <button 
