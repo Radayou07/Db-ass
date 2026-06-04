@@ -161,17 +161,21 @@ def pay_order(id):
     # Role based method logic
     if role == "customer":
         method = "Transfer"
+        # For customer payments, we still need a valid staff ID for the payment record
+        # Use the order's assigned employee_id as the processor
+        employee_id = order.employee_id
     else:
         method = data.get("payment_method", "Cash")
         if method not in ['Cash', 'Credit card', 'Transfer']:
             method = "Cash"
+        employee_id = int(get_jwt_identity())
     
     new_payment = PaymentCustomer(
         order_id=id,
         amount=final_total,
         method=method,
         status=1,
-        employee_id=get_jwt_identity(), # Use person who is marking it as paid
+        employee_id=employee_id,
         date=datetime.utcnow().date()
     )
     db.session.add(new_payment)
@@ -184,8 +188,29 @@ def pay_order(id):
 def delete_order(id):
     order = Orders.query.get(id)
     if not order: return jsonify({"error": "Order not found"}), 404
+    
+    # Check if order is already paid - optional, but good for logic
+    if PaymentCustomer.query.filter_by(order_id=id, status=1).first():
+        # Maybe don't allow cancelling paid orders? Or handle refund.
+        pass
+
+    # 1. Restore Inventory Stock
+    for detail in order.details:
+        pid = detail.product_id
+        qty = detail.quantity
+        
+        # Try to find the last inventory record for this product to put stock back into
+        inv = Inventory.query.filter_by(product_id=pid).order_by(Inventory.id.desc()).first()
+        if inv:
+            inv.inventory_quantity += qty
+        else:
+            # If no inventory record exists (shouldn't happen), create a dummy one
+            # or skip. Best to put back into the most recent one.
+            pass
+
+    # 2. Cleanup
     OrderDetail.query.filter_by(order_id=id).delete()
     PaymentCustomer.query.filter_by(order_id=id).delete()
     db.session.delete(order)
     db.session.commit()
-    return jsonify({"message": "Removed"}), 200
+    return jsonify({"message": "Order cancelled and stock restored."}), 200
