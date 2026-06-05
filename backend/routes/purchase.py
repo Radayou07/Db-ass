@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
-from models import Purchase, PurchaseDetail, Product, Inventory, Employee, Supplier
+from models import Purchase, PurchaseDetail, Product, Inventory, Employee, Supplier, SupplierProduct
 from datetime import datetime
 
 purchase_bp = Blueprint("purchase", __name__)
@@ -13,14 +13,14 @@ def get_purchases():
         Purchase,
         Supplier.name.label("supplier_name"),
         Employee.name.label("employee_name")
-    ).join(Supplier, Purchase.supplier_id == Supplier.id)\
-     .join(Employee, Purchase.employee_id == Employee.id).all()
+    ).outerjoin(Supplier, Purchase.supplier_id == Supplier.id)\
+     .outerjoin(Employee, Purchase.employee_id == Employee.id).all()
 
     purchase_list = []
     for p, s_name, e_name in results:
         data = p.to_dict()
-        data["supplier_name"] = s_name
-        data["employee_name"] = e_name
+        data["supplier_name"] = s_name or "Unknown Supplier"
+        data["employee_name"] = e_name or "Unknown Employee"
         
         # Add summary counts
         details = PurchaseDetail.query.filter_by(purchase_id=p.id).all()
@@ -34,26 +34,38 @@ def get_purchases():
 @purchase_bp.route("/<int:id>", methods=["GET"])
 @jwt_required()
 def get_purchase_details(id):
-    purchase = Purchase.query.get(id)
-    if not purchase:
+    purchase_row = db.session.query(
+        Purchase,
+        Supplier.name.label("supplier_name"),
+        Employee.name.label("employee_name")
+    ).outerjoin(Supplier, Purchase.supplier_id == Supplier.id)\
+     .outerjoin(Employee, Purchase.employee_id == Employee.id)\
+     .filter(Purchase.id == id).first()
+
+    if not purchase_row:
         return jsonify({"error": "Purchase not found"}), 404
+
+    purchase, supplier_name, employee_name = purchase_row
 
     details = db.session.query(
         PurchaseDetail,
         Product.name.label("product_name")
-    ).join(Product, PurchaseDetail.product_id == Product.id)\
+    ).outerjoin(Product, PurchaseDetail.product_id == Product.id)\
      .filter(PurchaseDetail.purchase_id == id).all()
 
     items = []
     for d, p_name in details:
         item_data = d.to_dict()
-        item_data["product_name"] = p_name
+        item_data["product_name"] = p_name or f"Product #{d.product_id}"
+        item_data["line_total"] = float(d.price) * d.quantity
         items.append(item_data)
 
     result = purchase.to_dict()
-    result["supplier_name"] = purchase.supplier.name
-    result["employee_name"] = purchase.employee.name
+    result["supplier_name"] = supplier_name or "Unknown Supplier"
+    result["employee_name"] = employee_name or "Unknown Employee"
     result["items"] = items
+    result["total_items"] = sum(item["quantity"] for item in items)
+    result["total_amount"] = sum(item["line_total"] for item in items)
 
     return jsonify(result), 200
 
@@ -80,11 +92,21 @@ def create_purchase():
         db.session.flush() # Get purchase.id
 
         for item in items:
+            product_id = int(item["product_id"])
+            supplier_product = SupplierProduct.query.filter_by(
+                supplier_id=int(supplier_id),
+                product_id=product_id,
+                is_active=True
+            ).first()
+            if not supplier_product:
+                db.session.rollback()
+                return jsonify({"error": "This supplier does not sell that product to us."}), 400
+
             detail = PurchaseDetail(
                 purchase_id=new_purchase.id,
-                product_id=int(item["product_id"]),
+                product_id=product_id,
                 quantity=int(item["quantity"]),
-                price=float(item["price"])
+                price=float(item.get("price", supplier_product.unit_price))
             )
             db.session.add(detail)
 

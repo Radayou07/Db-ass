@@ -126,6 +126,7 @@ export default function Home() {
   const counts = stats?.counts || {}
   const topProducts = stats?.top_products || []
   const topCustomers = stats?.top_customers || []
+  const salesVsPurchases = stats?.sales_vs_purchases || []
 
   const STAT_CARDS = [
     { label: "Products", value: counts.products?.toLocaleString(), sub: "In your store", Icon: FiBox,          card: "border-box-border bg-box-border-bg", icon: "text-blue-400 bg-blue-50 dark:bg-blue-950/40" },
@@ -224,18 +225,14 @@ export default function Home() {
           </div>
         </Card>
 
-        {/* Time series placeholder */}
+        {/* Purchases vs Sales */}
         <Card className="col-span-3 row-span-3 row-start-4 p-4 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-slate-400 dark:text-slate-300 uppercase tracking-wide">Purchases vs Sales</p>
-            <p className="text-[8px] text-slate-400 dark:text-slate-300 italic font-mono uppercase tracking-widest">Projection Data Only</p>
+            <p className="text-[8px] text-slate-400 dark:text-slate-300 italic font-mono uppercase tracking-widest">Last 6 Months</p>
           </div>
-          <div className="flex-1 flex items-center min-h-0 opacity-40 grayscale">
-            <TimeSeriesChart data={[
-              { month: "Jan", income: 42, outcome: 28 }, { month: "Feb", income: 55, outcome: 31 },
-              { month: "Mar", income: 38, outcome: 25 }, { month: "Apr", income: 67, outcome: 42 },
-              { month: "May", income: 71, outcome: 38 }, { month: "Jun", income: 59, outcome: 35 },
-            ]} />
+          <div className="flex-1 flex items-center min-h-0">
+            <TimeSeriesChart data={salesVsPurchases} />
           </div>
         </Card>
       </div>

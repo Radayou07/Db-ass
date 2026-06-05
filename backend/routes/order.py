@@ -42,10 +42,8 @@ def create_order():
         # 1. Context determination
         if role == "customer":
             customer_id = user_id
-            system_emp = Employee.query.first()
-            if not system_emp:
-                return jsonify({"error": "No staff member to process order."}), 500
-            employee_id = system_emp.id
+            employee_id = None
+            payment_employee_id = None
             method = "Transfer" # Customers always pay via Transfer (QR)
             
             # Read from cart
@@ -60,6 +58,7 @@ def create_order():
         else:
             customer_id = data.get("customer_id")
             employee_id = user_id
+            payment_employee_id = user_id
             if not customer_id:
                  return jsonify({"error": "Customer ID is required for staff-led orders."}), 400
             customer_id = int(customer_id)
@@ -124,12 +123,18 @@ def create_order():
 
         # 4. Immediate Payment
         if data.get("paid", False):
+            if payment_employee_id is None:
+                system_emp = Employee.query.first()
+                if not system_emp:
+                    return jsonify({"error": "No staff member available to record payment."}), 500
+                payment_employee_id = system_emp.id
+
             new_payment = PaymentCustomer(
                 order_id=new_order.id,
                 amount=final_total,
                 method=method,
                 status=1,
-                employee_id=employee_id,
+                employee_id=payment_employee_id,
                 date=datetime.utcnow().date()
             )
             db.session.add(new_payment)
@@ -166,9 +171,10 @@ def pay_order(id):
     # Role based method logic
     if role == "customer":
         method = "Transfer"
-        # For customer payments, we still need a valid staff ID for the payment record
-        # Use the order's assigned employee_id as the processor
-        employee_id = order.employee_id
+        system_emp = Employee.query.first()
+        if not system_emp:
+            return jsonify({"error": "No staff member available to record payment."}), 500
+        employee_id = system_emp.id
     else:
         method = data.get("payment_method", "Cash")
         if method not in ['Cash', 'Credit card', 'Transfer']:

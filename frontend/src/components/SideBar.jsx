@@ -17,6 +17,7 @@ const ADMIN_NAV = [
   { to: "/staff/orders",     Icon: GiShoppingBag,  label: "Orders" },
   { to: "/staff/customers",  Icon: IoMdPeople,     label: "Customers" },
   { to: "/staff/suppliers",  Icon: FaHandsHelping, label: "Suppliers" },
+  { to: "/staff/brands",     Icon: FiTag,          label: "Brands" },
   { to: "/staff/discounts",  Icon: FiTag,          label: "Discounts" },
   { to: "/staff/analysis",  Icon: MdAnalytics,    label: "Analysis" },
 ]

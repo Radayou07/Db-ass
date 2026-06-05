@@ -4,9 +4,9 @@ import { useAuth } from "../context/AuthContext"
 import { useToast } from "../context/ToastContext"
 import { 
   FiArrowLeft, FiPackage, FiTag, FiDollarSign, FiArchive, 
-  FiActivity, FiCalendar, FiShoppingCart, FiHome, FiCheck, 
+  FiActivity, FiCalendar, FiShoppingCart, FiCheck, 
   FiCreditCard, FiInfo, FiTruck, FiShield, FiRotateCcw,
-  FiChevronLeft, FiChevronRight, FiPlusCircle, FiMinusCircle, FiX
+  FiChevronLeft, FiChevronRight, FiPlusCircle, FiMinusCircle, FiX, FiTrash2
 } from "react-icons/fi"
 
 /* ─── Add to Cart Modal (Same as Products page for consistency) ─── */
@@ -258,7 +258,7 @@ export default function ProductDetail() {
           <div className="lg:w-1/2 p-8 lg:p-12 space-y-10 flex flex-col justify-center">
              <div>
                 <h1 className="text-4xl font-black text-slate-800 dark:text-white leading-tight tracking-tighter">{product.name}</h1>
-                <p className="text-sm font-bold text-sky-500 uppercase tracking-[0.2em] mt-2">{product.company}</p>
+                <p className="text-sm font-bold text-sky-500 uppercase tracking-[0.2em] mt-2">{product.brand_name || product.company}</p>
              </div>
 
              <div className="space-y-4">
@@ -302,7 +302,7 @@ export default function ProductDetail() {
                      </button>
                    ) : (
                      <button 
-                       onClick={() => navigate(`/staff/products`, { state: { edit: product } })}
+                       onClick={() => navigate(`/staff/products`, { state: { edit: product, returnTo: `/staff/products/${product.id}` } })}
                        className="flex-1 sm:flex-none px-10 py-5 rounded-[2rem] bg-slate-900 dark:bg-slate-800 text-white font-black uppercase tracking-widest text-xs hover:bg-black transition-all active:scale-95"
                      >
                         Update Entity
@@ -315,11 +315,11 @@ export default function ProductDetail() {
              <div className="grid grid-cols-2 gap-4 pt-10">
                 <div className="flex items-center gap-3 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50">
                    <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 flex items-center justify-center shrink-0">
-                      <FiTruck size={20}/>
+                      <FiPackage size={20}/>
                    </div>
                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-white truncate">Global Logistics</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Instant Dispatch</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-white truncate">Catalog Entity</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Verified product specifications</p>
                    </div>
                 </div>
                 <div className="flex items-center gap-3 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50">

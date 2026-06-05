@@ -2,9 +2,9 @@ import os
 import uuid
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt
 from extensions import db
-from models import Supplier, SupplierNumber, SupplierImage, Purchase, PurchaseDetail
+from models import Supplier, SupplierNumber, SupplierImage, Purchase, PurchaseDetail, SupplierProduct
 
 supplier_bp = Blueprint("supplier", __name__)
 
@@ -13,6 +13,12 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def require_staff():
+    claims = get_jwt()
+    if claims.get("role") not in ("admin", "staff"):
+        return jsonify({"error": "Admin or staff access required."}), 403
+    return None
 
 @supplier_bp.route("", methods=["GET"])
 @jwt_required()
@@ -117,10 +123,27 @@ def delete_supplier(id):
     # Check for transaction history
     if Purchase.query.filter_by(supplier_id=id).first():
         return jsonify({"error": "Cannot delete supplier with active purchase history."}), 400
+    if SupplierProduct.query.filter_by(supplier_id=id, is_active=True).first():
+        return jsonify({"error": "Cannot delete supplier while products are sourced from it."}), 400
 
     db.session.delete(supplier)
     db.session.commit()
     return jsonify({"message": "Supplier removed successfully."}), 200
+
+
+@supplier_bp.route("/<int:id>/products", methods=["GET"])
+@jwt_required()
+def get_supplier_products(id):
+    denied = require_staff()
+    if denied:
+        return denied
+
+    supplier = Supplier.query.get(id)
+    if not supplier:
+        return jsonify({"error": "Supplier not found"}), 404
+
+    links = SupplierProduct.query.filter_by(supplier_id=id, is_active=True).all()
+    return jsonify([link.to_dict() for link in links]), 200
 
 @supplier_bp.route("/<int:id>/image", methods=["POST"])
 @jwt_required()
@@ -171,6 +194,7 @@ def get_supplier_purchases(id):
         purchase_data = purchase.to_dict()
         # Add summary info
         details = PurchaseDetail.query.filter_by(purchase_id=purchase.id).all()
+        purchase_data["product_ids"] = [d.product_id for d in details]
         purchase_data["total_items"] = sum(d.quantity for d in details)
         purchase_data["total_amount"] = sum(float(d.price) * d.quantity for d in details)
         results.append(purchase_data)

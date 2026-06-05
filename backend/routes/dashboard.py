@@ -1,10 +1,68 @@
 from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required
 from extensions import db
-from models import Product, Orders, Inventory, Customer, OrderDetail, Supplier
+from models import Product, Orders, Inventory, Customer, OrderDetail, Supplier, Purchase, PurchaseDetail
 from sqlalchemy import func
+from datetime import date
 
 dashboard_bp = Blueprint("dashboard", __name__)
+
+def add_months(source_date, months):
+    month = source_date.month - 1 + months
+    year = source_date.year + month // 12
+    month = month % 12 + 1
+    return date(year, month, 1)
+
+def sales_vs_purchases_data(month_count=6):
+    today = date.today()
+    first_month = add_months(date(today.year, today.month, 1), -(month_count - 1))
+    months = [add_months(first_month, idx) for idx in range(month_count)]
+    buckets = {
+        month.strftime("%Y-%m"): {
+            "month": month.strftime("%b"),
+            "sales": 0.0,
+            "purchases": 0.0,
+        }
+        for month in months
+    }
+
+    sales_rows = db.session.query(
+        Orders.date,
+        OrderDetail.quantity,
+        OrderDetail.price,
+    ).join(OrderDetail, Orders.id == OrderDetail.order_id)\
+     .filter(Orders.date >= first_month)\
+     .all()
+
+    for order_date, quantity, price in sales_rows:
+        key = order_date.strftime("%Y-%m")
+        if key in buckets:
+            buckets[key]["sales"] += float(price) * int(quantity)
+
+    purchase_rows = db.session.query(
+        Purchase.date,
+        PurchaseDetail.quantity,
+        PurchaseDetail.price,
+    ).join(PurchaseDetail, Purchase.id == PurchaseDetail.purchase_id)\
+     .filter(Purchase.date >= first_month)\
+     .filter(Purchase.status != "cancelled")\
+     .all()
+
+    for purchase_date, quantity, price in purchase_rows:
+        key = purchase_date.strftime("%Y-%m")
+        if key in buckets:
+            buckets[key]["purchases"] += float(price) * int(quantity)
+
+    return [
+        {
+            **bucket,
+            "sales": round(bucket["sales"], 2),
+            "purchases": round(bucket["purchases"], 2),
+            "income": round(bucket["sales"], 2),
+            "outcome": round(bucket["purchases"], 2),
+        }
+        for bucket in buckets.values()
+    ]
 
 @dashboard_bp.route("/stats", methods=["GET"])
 @jwt_required()
@@ -67,5 +125,11 @@ def get_stats():
             "out_of_stock": out_of_stock_count
         },
         "top_customers": top_customers,
-        "top_products": top_products
+        "top_products": top_products,
+        "sales_vs_purchases": sales_vs_purchases_data()
     }), 200
+
+@dashboard_bp.route("/sales-vs-purchases", methods=["GET"])
+@jwt_required()
+def get_sales_vs_purchases():
+    return jsonify(sales_vs_purchases_data()), 200

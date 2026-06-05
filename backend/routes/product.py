@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
 from sqlalchemy import func
 from extensions import db
-from models import Product, Category, Inventory, ProductImage, Warehouse, UnitOfMeasure, OrderDetail, Purchase, PurchaseDetail
+from models import Product, Category, Inventory, ProductImage, Warehouse, UnitOfMeasure, OrderDetail, Purchase, PurchaseDetail, Supplier, Brand, SupplierProduct
 from datetime import datetime
 
 product_bp = Blueprint("product", __name__)
@@ -15,6 +15,163 @@ def verify_admin_privileges():
     if claims.get("role") != "admin":
         return True # Temporarily allowing for all roles as requested
     return True
+
+def require_staff_privileges():
+    claims = get_jwt()
+    if claims.get("role") not in ("admin", "staff"):
+        return jsonify({"error": "Admin or staff access required."}), 403
+    return None
+
+def clean_optional_text(value, default=None):
+    if value is None:
+        return default
+    value = str(value).strip()
+    return value or default
+
+def parse_required_int(data, field, label):
+    value = data.get(field)
+    if value in (None, ""):
+        raise ValueError(f"{label} is required.")
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{label} must be a valid number.")
+
+def parse_optional_int(data, field, label):
+    value = data.get(field)
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{label} must be a valid number.")
+
+def parse_money(data, field, label, default=None):
+    value = data.get(field, default)
+    if value in (None, ""):
+        if default is None:
+            raise ValueError(f"{label} is required.")
+        value = default
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{label} must be a valid number.")
+    if value < 0:
+        raise ValueError(f"{label} cannot be negative.")
+    return value
+
+def parse_date(data, field, label):
+    value = data.get(field)
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValueError(f"{label} must use YYYY-MM-DD format.")
+
+def clean_image_urls(images):
+    if images in (None, ""):
+        return []
+    if not isinstance(images, list):
+        raise ValueError("Images must be a list of URLs.")
+    return [str(url).strip() for url in images if str(url).strip()]
+
+def product_response(product, total_stock=0, category_name=None, uom_name=None, uom_abbreviation=None, warehouse_id=None):
+    last_purchase = PurchaseDetail.query.filter_by(product_id=product.id)\
+        .join(Purchase)\
+        .order_by(Purchase.date.desc(), Purchase.id.desc())\
+        .first()
+    last_cost = float(last_purchase.price) if last_purchase else 0
+
+    try:
+        images = [img.to_dict() for img in product.images]
+    except Exception:
+        images = []
+
+    brand_name = product.brand.name if product.brand else None
+    return {
+        "id": product.id,
+        "name": product.name,
+        "description": product.description,
+        "price": float(product.price),
+        "last_cost": last_cost,
+        "brand_id": product.brand_id,
+        "brand_name": brand_name,
+        "company": brand_name,
+        "expire": product.expire.isoformat() if product.expire else None,
+        "category_id": product.category_id,
+        "category_name": category_name if category_name is not None else (product.category.name if product.category else None),
+        "uom_id": product.uom_id,
+        "uom_name": uom_name if uom_name is not None else (product.uom.name if product.uom else None),
+        "uom_abbreviation": uom_abbreviation if uom_abbreviation is not None else (product.uom.abbreviation if product.uom else None),
+        "stock": int(total_stock) if total_stock is not None else 0,
+        "warehouse_id": warehouse_id,
+        "discount_percent": float(product.discount_percent) if product.discount_percent else 0,
+        "discount_expires_at": product.discount_expires_at.isoformat() if product.discount_expires_at else None,
+        "sale_price": product.to_dict()["sale_price"],
+        "has_discount": product.to_dict()["has_discount"],
+        "images": [{**img, "url": img["url"].replace(":5000/", ":5001/")} for img in images]
+    }
+
+def validate_product_payload(data, require_all=True):
+    name = clean_optional_text(data.get("name"))
+    if require_all and not name:
+        raise ValueError("Product name is required.")
+
+    price = parse_money(data, "price", "Price") if require_all or "price" in data else None
+    category_id = parse_required_int(data, "category_id", "Category") if require_all or "category_id" in data else None
+    uom_id = parse_required_int(data, "uom_id", "Unit of measure") if require_all or "uom_id" in data else None
+    brand_id = parse_required_int(data, "brand_id", "Brand") if require_all or "brand_id" in data else None
+    warehouse_id = parse_optional_int(data, "warehouse_id", "Warehouse") if require_all or "warehouse_id" in data else None
+    initial_quantity = parse_optional_int(data, "initial_quantity", "Initial quantity") if require_all or "initial_quantity" in data else None
+
+    if initial_quantity is not None and initial_quantity < 0:
+        raise ValueError("Initial quantity cannot be negative.")
+    if initial_quantity is not None and initial_quantity > 0 and warehouse_id is None:
+        raise ValueError("Warehouse is required when initial quantity is greater than zero.")
+
+    discount_percent = parse_money(data, "discount_percent", "Discount percent", 0) if require_all or "discount_percent" in data else None
+    if discount_percent is not None and discount_percent > 100:
+        raise ValueError("Discount percent cannot exceed 100.")
+
+    expire_date = parse_date(data, "expire", "Expiration date") if require_all or "expire" in data else None
+    discount_expires_at = parse_date(data, "discount_expires_at", "Discount expiration date") if require_all or "discount_expires_at" in data else None
+    images = clean_image_urls(data.get("images", [])) if require_all or "images" in data else None
+
+    if category_id is not None and not Category.query.get(category_id):
+        raise LookupError("Category not found.")
+    if uom_id is not None and not UnitOfMeasure.query.get(uom_id):
+        raise LookupError("Unit of measure not found.")
+    if brand_id is not None and not Brand.query.get(brand_id):
+        raise LookupError("Brand not found.")
+
+    warehouse = None
+    if warehouse_id is not None:
+        warehouse = Warehouse.query.get(warehouse_id)
+        if not warehouse:
+            raise LookupError("Warehouse not found.")
+
+    if initial_quantity is not None and warehouse is not None:
+        current_usage = db.session.query(func.sum(Inventory.inventory_quantity)).filter_by(warehouse_id=warehouse_id).scalar() or 0
+        if current_usage + initial_quantity > warehouse.capacity:
+            raise ValueError(
+                f"Warehouse capacity exceeded. Requested total: {current_usage + initial_quantity}, Max: {warehouse.capacity}."
+            )
+
+    return {
+        "name": name,
+        "description": clean_optional_text(data.get("description")),
+        "price": price,
+        "brand_id": brand_id,
+        "expire": expire_date,
+        "category_id": category_id,
+        "uom_id": uom_id,
+        "discount_percent": discount_percent,
+        "discount_expires_at": discount_expires_at,
+        "initial_quantity": initial_quantity,
+        "warehouse_id": warehouse_id,
+        "images": images,
+    }
 
 @product_bp.route("/warehouses", methods=["GET"])
 def get_warehouses():
@@ -42,6 +199,7 @@ def get_products():
         UnitOfMeasure.name.label("uom_name"),
         UnitOfMeasure.abbreviation.label("uom_abbreviation")
     ).join(Category, Product.category_id == Category.id)\
+     .outerjoin(Brand, Product.brand_id == Brand.id)\
      .outerjoin(UnitOfMeasure, Product.uom_id == UnitOfMeasure.id)\
      .outerjoin(stock_sub, Product.id == stock_sub.c.product_id)
 
@@ -49,37 +207,7 @@ def get_products():
     
     product_list = []
     for product, cat_name, total_stock, uom_name, uom_abbr in results:
-        # Get last purchase cost
-        last_purchase = PurchaseDetail.query.filter_by(product_id=product.id)\
-            .join(Purchase)\
-            .order_by(Purchase.date.desc(), Purchase.id.desc())\
-            .first()
-        last_cost = float(last_purchase.price) if last_purchase else 0
-
-        # Safely handle images if table doesn't exist yet
-        try:
-            images = [img.to_dict() for img in product.images]
-        except:
-            images = []
-
-        product_list.append({
-            "id": product.id,
-            "name": product.name,
-            "description": product.description,
-            "price": float(product.price),
-            "last_cost": last_cost,
-            "company": product.company,
-            "expire": product.expire.isoformat() if product.expire else None,
-            "category_id": product.category_id,
-            "category_name": cat_name,
-            "uom_id": product.uom_id,
-            "uom_name": uom_name,
-            "uom_abbreviation": uom_abbr,
-            "stock": int(total_stock) if total_stock is not None else 0,
-            "supplier_id": product.supplier_id,
-            "supplier_name": product.supplier.name if product.supplier else "No Supplier",
-            "images": [{**img, "url": img["url"].replace(":5000/", ":5001/")} for img in images]
-        })
+        product_list.append(product_response(product, total_stock, cat_name, uom_name, uom_abbr))
 
     return jsonify(product_list), 200
 
@@ -92,89 +220,66 @@ def create_product():
     print(f"Input data: {data}")
     
     try:
-        name = data.get("name", "").strip()
-        price = data.get("price")
-        category_id = data.get("category_id")
-        uom_id = data.get("uom_id")
+        product_data = validate_product_payload(data)
 
-        if not name or price is None or not category_id or not uom_id:
-            print("Error: Missing required fields")
-            return jsonify({"error": "Missing parameters: name, price, category_id, and uom_id are required."}), 400
-
-        expire_date = None
-        if data.get("expire"):
-            try:
-                expire_date = datetime.strptime(data["expire"], "%Y-%m-%d").date()
-            except ValueError:
-                print(f"Error: Invalid date format: {data['expire']}")
-                return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
-
-        discount_expires_at = None
-        if data.get("discount_expires_at"):
-            try:
-                discount_expires_at = datetime.strptime(data["discount_expires_at"], "%Y-%m-%d").date()
-            except ValueError:
-                return jsonify({"error": "Invalid discount_expires_at format. Use YYYY-MM-DD."}), 400
-
-        print(f"Creating product object: name={name}, price={price}, cat={category_id}, uom={uom_id}")
+        print(
+            "Creating product object: "
+            f"name={product_data['name']}, "
+            f"price={product_data['price']}, "
+            f"cat={product_data['category_id']}, "
+            f"uom={product_data['uom_id']}"
+        )
         new_product = Product(
-            name=name,
-            description=data.get("description", "").strip() or None,
-            price=float(price),
-            company=data.get("company", "Unknown").strip() or "Unknown",
-            expire=expire_date,
-            category_id=int(category_id),
-            uom_id=int(uom_id),
-            supplier_id=data.get("supplier_id"),
-            discount_percent=data.get("discount_percent", 0),
-            discount_expires_at=discount_expires_at
+            name=product_data["name"],
+            description=product_data["description"],
+            price=product_data["price"],
+            brand_id=product_data["brand_id"],
+            expire=product_data["expire"],
+            category_id=product_data["category_id"],
+            uom_id=product_data["uom_id"],
+            discount_percent=product_data["discount_percent"],
+            discount_expires_at=product_data["discount_expires_at"]
         )
 
         print("Adding product to session...")
         db.session.add(new_product)
         
-        # Handle initial quantity
-        initial_qty = data.get("initial_quantity")
-        warehouse_id = data.get("warehouse_id")
-        if initial_qty is not None and warehouse_id:
-            try:
-                db.session.flush() # ensure product.id is available
-                new_inv = Inventory(
-                    product_id=new_product.id,
-                    warehouse_id=int(warehouse_id),
-                    inventory_quantity=int(initial_qty)
-                )
-                db.session.add(new_inv)
-                print(f"Initial stock added: {initial_qty} units in warehouse {warehouse_id}")
-            except Exception as e:
-                print(f"Inventory initialization warning: {str(e)}")
+        initial_qty = product_data["initial_quantity"]
+        warehouse_id = product_data["warehouse_id"]
+        if initial_qty is not None and warehouse_id is not None:
+            db.session.flush()
+            new_inv = Inventory(
+                product_id=new_product.id,
+                warehouse_id=warehouse_id,
+                inventory_quantity=initial_qty
+            )
+            db.session.add(new_inv)
+            print(f"Initial stock added: {initial_qty} units in warehouse {warehouse_id}")
         
-        # Handle optional image URLs safely
-        images = data.get("images", [])
-        if isinstance(images, list) and len(images) > 0:
+        images = product_data["images"]
+        if images:
             print(f"Attempting to save {len(images)} images...")
-            try:
-                db.session.flush()
-                print(f"Assigned ID: {new_product.id}")
-                for i, img_url in enumerate(images):
-                    if img_url and str(img_url).strip():
-                        new_img = ProductImage(
-                            product_id=new_product.id,
-                            url=str(img_url).strip(),
-                            is_primary=(i == 0)
-                        )
-                        db.session.add(new_img)
-            except Exception as e:
-                print(f"IMAGE TABLE WARNING: {str(e)}")
-                for obj in list(db.session.new):
-                    if isinstance(obj, ProductImage):
-                        db.session.expunge(obj)
+            db.session.flush()
+            print(f"Assigned ID: {new_product.id}")
+            for i, img_url in enumerate(images):
+                new_img = ProductImage(
+                    product_id=new_product.id,
+                    url=img_url,
+                    is_primary=(i == 0)
+                )
+                db.session.add(new_img)
 
         print("Finalizing database commit...")
         db.session.commit()
         print("--- PRODUCT LOGGED SUCCESSFULLY ---")
         return jsonify({"message": "Product logged successfully.", "id": new_product.id}), 201
 
+    except LookupError as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 404
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         db.session.rollback()
         print(f"CRITICAL PRODUCT CREATION ERROR: {str(e)}")
@@ -193,40 +298,17 @@ def get_single_product(id):
     # Calculate current localized stock configurations
     stock_sum = db.session.query(func.sum(Inventory.inventory_quantity)).filter(Inventory.product_id == id).scalar()
 
-    try:
-        images = [img.to_dict() for img in product.images]
-    except:
-        images = []
-
     # Get primary warehouse record if it exists
     primary_inv = Inventory.query.filter_by(product_id=id).first()
 
-    # Get last purchase cost
-    last_purchase = PurchaseDetail.query.filter_by(product_id=id)\
-        .join(Purchase)\
-        .order_by(Purchase.date.desc(), Purchase.id.desc())\
-        .first()
-    last_cost = float(last_purchase.price) if last_purchase else 0
-
-    return jsonify({
-        "id": product.id,
-        "name": product.name,
-        "description": product.description,
-        "price": float(product.price),
-        "last_cost": last_cost,
-        "company": product.company,
-        "expire": product.expire.isoformat() if product.expire else None,
-        "category_id": product.category_id,
-        "category_name": product.category.name if product.category else None,
-        "uom_id": product.uom_id,
-        "uom_name": product.uom.name if product.uom else None,
-        "uom_abbreviation": product.uom.abbreviation if product.uom else None,
-        "stock": int(stock_sum) if stock_sum is not None else 0,
-        "warehouse_id": primary_inv.warehouse_id if primary_inv else None,
-        "supplier_id": product.supplier_id,
-        "supplier_name": product.supplier.name if product.supplier else "No Supplier",
-        "images": [{**img, "url": img["url"].replace(":5000/", ":5001/")} for img in images]
-    }), 200
+    return jsonify(product_response(
+        product,
+        stock_sum,
+        product.category.name if product.category else None,
+        product.uom.name if product.uom else None,
+        product.uom.abbreviation if product.uom else None,
+        primary_inv.warehouse_id if primary_inv else None,
+    )), 200
 
 
 @product_bp.route("/<int:id>", methods=["PUT"])
@@ -245,10 +327,13 @@ def update_product(id):
         if "name" in data: product.name = data["name"].strip()
         if "description" in data: product.description = data["description"].strip() or None
         if "price" in data: product.price = float(data["price"])
-        if "company" in data: product.company = data["company"].strip() or "Unknown"
+        if "brand_id" in data:
+            brand_id = int(data["brand_id"])
+            if not Brand.query.get(brand_id):
+                return jsonify({"error": "Brand not found."}), 404
+            product.brand_id = brand_id
         if "category_id" in data: product.category_id = int(data["category_id"])
         if "uom_id" in data: product.uom_id = int(data["uom_id"])
-        if "supplier_id" in data: product.supplier_id = data["supplier_id"]
         
         if "discount_percent" in data: product.discount_percent = float(data["discount_percent"])
         

@@ -11,6 +11,7 @@ function ProductCard({ product, onEdit, onDelete, onBuy, isInternal }) {
   const navigate = useNavigate()
   const [activeImage, setActiveImage] = useState(0)
   const images = product.images?.length > 0 ? product.images : [{ url: null }]
+  const detailPath = isInternal ? `/staff/products/${product.id}` : `/customer/products/${product.id}`
 
   const nextImage = (e) => {
     e.stopPropagation()
@@ -27,7 +28,7 @@ function ProductCard({ product, onEdit, onDelete, onBuy, isInternal }) {
   if (isInternal) {
     return (
       <div 
-        onClick={() => navigate(`/products/${product.id}`)}
+        onClick={() => navigate(detailPath)}
         className="bg-box-bg dark:bg-box-dark-bg rounded-xl border border-box-border dark:border-box-dark-border p-3 hover:shadow-md transition-all duration-300 flex flex-col h-full group cursor-pointer active:scale-95"
       >
         <div className="flex gap-3 flex-1">
@@ -93,7 +94,7 @@ function ProductCard({ product, onEdit, onDelete, onBuy, isInternal }) {
   // E-commerce Customer Card Layout
   return (
     <div 
-      onClick={() => navigate(`/products/${product.id}`)}
+      onClick={() => navigate(detailPath)}
       className="bg-white dark:bg-slate-900 rounded-2xl border border-black/5 dark:border-white/5 overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full group cursor-pointer relative"
     >
       {/* Huge Image Area */}
@@ -314,13 +315,15 @@ function BuyModal({ product, onConfirm, onClose }) {
 
 export default function Products() {
   const { user, authFetch } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   
   // App States
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
+  const [brands, setBrands] = useState([])
   const [units, setUnits] = useState([])
   const [warehouses, setWarehouses] = useState([])
-  const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
@@ -335,14 +338,18 @@ export default function Products() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
   const [buyTarget, setBuyTarget] = useState(null)
   const [currentProduct, setCurrentProduct] = useState(null)
+  const [editReturnTo, setEditReturnTo] = useState(null)
   
   // Input Form States
   const [formData, setFormData] = useState({
-    name: "", description: "", price: "", company: "", expire: "", category_id: "", uom_id: "", initial_quantity: 0, warehouse_id: "", supplier_id: "", discount_percent: 0, discount_expires_at: "", images: [] 
+    name: "", description: "", price: "", brand_id: "", expire: "", category_id: "", uom_id: "", initial_quantity: 0, warehouse_id: "", discount_percent: 0, discount_expires_at: "", existing_stock: 0, images: [] 
   })
 
   const [newCategoryName, setNewCategoryName] = useState("")
+  const [quickCategoryName, setQuickCategoryName] = useState("")
+  const [quickCategoryError, setQuickCategoryError] = useState("")
   const [isAddingCategory, setIsAddingCategory] = useState(false)
+  const [isQuickAddingCategory, setIsQuickAddingCategory] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
 
   const isInternal = user?.role === "admin" || user?.role === "staff"
@@ -350,18 +357,18 @@ export default function Products() {
   const fetchInitialData = async () => {
     setLoading(true)
     try {
-      const [productsRes, categoriesRes, unitsRes, warehousesRes, suppliersRes] = await Promise.all([
+      const [productsRes, categoriesRes, unitsRes, warehousesRes, brandsRes] = await Promise.all([
         authFetch("/products"),
         authFetch("/categories"),
         authFetch("/units"),
         authFetch("/inventory/warehouses"),
-        authFetch("/suppliers")
+        authFetch("/brands")
       ])
       if (productsRes.ok) setProducts(await productsRes.json())
       if (categoriesRes.ok) setCategories(await categoriesRes.json())
       if (unitsRes.ok) setUnits(await unitsRes.json())
       if (warehousesRes.ok) setWarehouses(await warehousesRes.json())
-      if (suppliersRes.ok) setSuppliers(await suppliersRes.json())
+      if (brandsRes.ok) setBrands(await brandsRes.json())
     } catch (err) {
       setError("Failed to load store data.")
     } finally {
@@ -376,6 +383,7 @@ export default function Products() {
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.brand_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.company?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = selectedCategory === "All" || String(product.category_id) === String(selectedCategory)
     return matchesSearch && matchesCategory
@@ -384,39 +392,71 @@ export default function Products() {
   // CRUD & Interaction logic
   const openAddModal = () => {
     setCurrentProduct(null)
+    setEditReturnTo(null)
+    setQuickCategoryName("")
+    setQuickCategoryError("")
     setFormData({ 
-      name: "", description: "", price: "", company: "", expire: "", 
+      name: "", description: "", 
+      price: "", 
+      brand_id: brands[0]?.id || "", expire: "", 
       category_id: categories[0]?.id || "", 
       uom_id: units[0]?.id || "",
       initial_quantity: 0, warehouse_id: warehouses[0]?.id || "", 
-      supplier_id: suppliers[0]?.id || "",
       discount_percent: 0, discount_expires_at: "",
+      existing_stock: 0,
       images: [] 
     })
     setIsFormModalOpen(true)
   }
 
-  const openEditModal = (product) => {
+  const openEditModal = (product, returnTo = null) => {
     setCurrentProduct(product)
+    setEditReturnTo(returnTo)
+    setQuickCategoryName("")
+    setQuickCategoryError("")
     setFormData({
-      name: product.name, description: product.description || "", price: product.price, company: product.company || "",
+      name: product.name, description: product.description || "", price: product.price, brand_id: product.brand_id || "",
       expire: product.expire ? product.expire.split('T')[0] : "", category_id: product.category_id || "",
       uom_id: product.uom_id || "",
       initial_quantity: product.stock || 0, warehouse_id: product.warehouse_id || warehouses[0]?.id || "",
-      supplier_id: product.supplier_id || "",
-      last_cost: product.last_cost || 0,
       discount_percent: product.discount_percent || 0,
       discount_expires_at: product.discount_expires_at ? product.discount_expires_at.split('T')[0] : "",
+      existing_stock: Number(product.stock) || 0,
       images: product.images?.length > 0 ? product.images.map(img => img.url) : []
     })
     setIsFormModalOpen(true)
   }
 
-  const handleQuickCategoryAdd = async () => {
-    if (!newCategoryName.trim()) return
+  useEffect(() => {
+    const editProduct = location.state?.edit
+    if (loading) return
+
+    if (editProduct) {
+      openEditModal(editProduct, location.state?.returnTo || null)
+      navigate(location.pathname, { replace: true, state: null })
+      return
+    }
+  }, [location.state, loading])
+
+  const handleQuickCategoryAdd = async (event) => {
+    event?.preventDefault()
+    event?.stopPropagation()
+
+    const categoryName = newCategoryName.trim()
+    if (!categoryName) return
+
+    const existingCategory = categories.find(
+      cat => cat.name.toLowerCase() === categoryName.toLowerCase()
+    )
+    if (existingCategory) {
+      setFormData(prev => ({ ...prev, category_id: existingCategory.id }))
+      setNewCategoryName("")
+      return
+    }
+
     setIsAddingCategory(true)
     try {
-      const response = await authFetch("/categories", { method: "POST", body: JSON.stringify({ name: newCategoryName.trim() }) })
+      const response = await authFetch("/categories", { method: "POST", body: JSON.stringify({ name: categoryName }) })
       if (response.ok) {
         const newCat = await response.json()
         setCategories(prev => [...prev, newCat])
@@ -428,6 +468,47 @@ export default function Products() {
       }
     } catch (err) { alert("Network error") }
     finally { setIsAddingCategory(false) }
+  }
+
+  const handleProductQuickCategoryAdd = async (event) => {
+    event?.preventDefault()
+    event?.stopPropagation()
+
+    const categoryName = quickCategoryName.trim()
+    if (!categoryName) return
+
+    setQuickCategoryError("")
+
+    const existingCategory = categories.find(
+      cat => cat.name.toLowerCase() === categoryName.toLowerCase()
+    )
+    if (existingCategory) {
+      setFormData(prev => ({ ...prev, category_id: existingCategory.id }))
+      setQuickCategoryName("")
+      return
+    }
+
+    setIsQuickAddingCategory(true)
+    try {
+      const response = await authFetch("/categories", {
+        method: "POST",
+        body: JSON.stringify({ name: categoryName })
+      })
+
+      const result = await response.json()
+      if (!response.ok) {
+        setQuickCategoryError(result.error || "Could not add category.")
+        return
+      }
+
+      setCategories(prev => [...prev, result])
+      setFormData(prev => ({ ...prev, category_id: result.id }))
+      setQuickCategoryName("")
+    } catch (err) {
+      setQuickCategoryError("Network error while adding category.")
+    } finally {
+      setIsQuickAddingCategory(false)
+    }
   }
 
   const handleFileUpload = async (e) => {
@@ -454,9 +535,19 @@ export default function Products() {
     e.preventDefault()
     const url = currentProduct ? `/products/${currentProduct.id}` : "/products"
     const method = currentProduct ? "PUT" : "POST"
+    const payload = { ...formData }
+
     try {
-      const response = await authFetch(url, { method, body: JSON.stringify(formData) })
-      if (response.ok) { setIsFormModalOpen(false); fetchInitialData() }
+      const response = await authFetch(url, { method, body: JSON.stringify(payload) })
+      if (response.ok) {
+        await response.json()
+        setIsFormModalOpen(false)
+        if (currentProduct && editReturnTo) {
+          navigate(editReturnTo, { replace: true })
+          return
+        }
+        fetchInitialData()
+      }
       else { const errData = await response.json(); alert(errData.error || "Failed to save product.") }
     } catch (err) { alert("Network failure.") }
   }
@@ -488,6 +579,18 @@ export default function Products() {
       }
     } catch (err) { alert("Network failure.") }
   }
+
+  const selectedFormUnit = units.find(unit => String(unit.id) === String(formData.uom_id))
+  const formUnitLabel = selectedFormUnit?.abbreviation || selectedFormUnit?.name || "unit"
+  const formQuantity = Number(formData.initial_quantity) || 0
+  const formSellPrice = Number(formData.price) || 0
+  const formBuyCost = Number(formData.cost_input || formData.last_cost) || 0
+  const formExistingStock = Number(formData.existing_stock) || 0
+  const formSellTotal = formQuantity * formSellPrice
+  const formBuyTotal = formQuantity * formBuyCost
+  const formProfitPerUnit = formSellPrice - formBuyCost
+  const formProfitTotal = formSellTotal - formBuyTotal
+  const formProfitIsNegative = formProfitTotal < 0
 
   return (
     <div className="h-screen bg-main-bg dark:bg-main-dark-bg transition-colors duration-300">
@@ -535,7 +638,7 @@ export default function Products() {
             {isInternal && (
               <>
                 <button onClick={() => setIsCategoryModalOpen(true)} className="flex items-center gap-2 px-6 py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white font-black text-xs uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm border border-black/5 dark:border-white/5"><FiFolder size={18} /><span className="hidden xl:inline">Categories</span></button>
-                <button onClick={openAddModal} className="flex items-center gap-2 px-6 py-4 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-sky-200 dark:shadow-none active:scale-95"><FiPlus size={18} /><span className="hidden xl:inline">Add Product</span></button>
+                <button onClick={() => openAddModal()} className="flex items-center gap-2 px-6 py-4 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-sky-200 dark:shadow-none active:scale-95"><FiPlus size={18} /><span className="hidden xl:inline">Add Product</span></button>
               </>
             )}
           </div>
@@ -565,58 +668,21 @@ export default function Products() {
               <h2 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter text-slate-800 dark:text-white"><FiPackage size={24} className="text-sky-500" /> {currentProduct ? "Edit Product" : "Add New Product"}</h2>
               <button onClick={() => setIsFormModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-xl bg-slate-50 dark:bg-slate-800"><FiX size={24} /></button>
             </div>
+            
             <form onSubmit={handleFormSubmit} className="space-y-6 text-sm overflow-y-auto pr-4 custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
                   <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Product Name *</label><input required type="text" placeholder="e.g. Mechanical Keyboard G-100" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner" /></div>
                   <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Description</label><textarea rows="3" placeholder="Specs, features, etc..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner resize-none" /></div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Price *</label><div className="relative"><FiDollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={16}/><input required type="number" step="0.01" min="0" placeholder="0.00" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full pl-10 pr-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" /></div></div>
-                    <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Brand</label><input type="text" placeholder="Brand Name" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" /></div>
-                  </div>
-
-                  {/* Price Helper */}
-                  <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30">
-                    <div className="flex items-center justify-between mb-3 px-1">
-                      <label className="block text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em]">Price Helper</label>
-                      {formData.last_cost > 0 && (
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest bg-white dark:bg-slate-900 px-2 py-0.5 rounded-full border border-slate-100 dark:border-slate-800">
-                           Last Cost: ${formData.last_cost}
-                        </span>
-                      )}
+                    <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Sell Price / {formUnitLabel} *</label><div className="relative"><FiDollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={16}/><input required type="number" step="0.01" min="0" placeholder="0.00" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full pl-10 pr-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" /></div></div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Brand *</label>
+                      <select required value={formData.brand_id} onChange={e => setFormData({...formData, brand_id: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold">
+                        <option value="" disabled>Select Brand</option>
+                        {brands.map(brand => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
+                      </select>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1">
-                         <input 
-                           type="number" 
-                           placeholder="Buy Cost..." 
-                           value={formData.cost_input || ""}
-                           onChange={(e) => {
-                             const cost = parseFloat(e.target.value) || 0
-                             setFormData(prev => ({ ...prev, cost_input: e.target.value, price: cost > 0 ? (cost * 1.3).toFixed(2) : prev.price }))
-                           }}
-                           className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs font-bold outline-none focus:ring-2 ring-emerald-500/20 shadow-sm"
-                         />
-                      </div>
-                      <div className="flex gap-1">
-                        {[1.2, 1.3, 1.5].map((m) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => {
-                              const cost = parseFloat(formData.cost_input || formData.last_cost) || 0
-                              if (cost > 0) setFormData(prev => ({ ...prev, price: (cost * m).toFixed(2) }))
-                            }}
-                            className="px-3 py-2 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 rounded-xl text-[9px] font-black text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all shadow-sm uppercase tracking-tighter"
-                          >
-                            +{Math.round((m-1)*100)}%
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {formData.last_cost > 0 && !formData.cost_input && (
-                      <p className="text-[8px] text-emerald-500 font-bold mt-2 px-1 italic">* Based on last purchase cost.</p>
-                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -637,11 +703,28 @@ export default function Products() {
                         <option value="" disabled>Select Category</option>
                         {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                       </select>
-                      <div className="mt-3 flex gap-2">
-                        <input type="text" placeholder="Quick Add..." value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="flex-1 px-3 py-2 text-[10px] bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 outline-none font-bold shadow-sm" />
-                        <button type="button" onClick={handleQuickCategoryAdd} disabled={isAddingCategory || !newCategoryName.trim()} className="w-10 h-10 flex items-center justify-center bg-sky-500 text-white rounded-xl shadow-lg shadow-sky-200 dark:shadow-none disabled:opacity-50 active:scale-95">
-                          {isAddingCategory ? <FiActivity className="animate-spin" size={16} /> : <FiPlus size={18}/>}
+                      <div className="mt-3 rounded-2xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 p-2 shadow-sm">
+                        <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Quick Add..."
+                          value={quickCategoryName}
+                          onChange={(e) => {
+                            setQuickCategoryName(e.target.value)
+                            if (quickCategoryError) setQuickCategoryError("")
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleProductQuickCategoryAdd(e)
+                          }}
+                          className="min-w-0 flex-1 px-3 py-2 text-[10px] bg-transparent outline-none font-bold text-slate-700 dark:text-slate-100 placeholder:text-slate-400"
+                        />
+                        <button type="button" onClick={handleProductQuickCategoryAdd} disabled={isQuickAddingCategory || !quickCategoryName.trim()} className="w-10 h-10 flex items-center justify-center bg-sky-500 text-white rounded-xl shadow-lg shadow-sky-200 dark:shadow-none disabled:opacity-50 active:scale-95">
+                          {isQuickAddingCategory ? <FiActivity className="animate-spin" size={16} /> : <FiPlus size={18}/>}
                         </button>
+                        </div>
+                        {quickCategoryError && (
+                          <p className="px-3 pb-1 text-[9px] font-bold text-rose-500">{quickCategoryError}</p>
+                        )}
                       </div>
                     </div>
                     <div>
@@ -652,17 +735,52 @@ export default function Products() {
                       </select>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Supplier *</label>
-                    <select required value={formData.supplier_id} onChange={e => setFormData({...formData, supplier_id: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent outline-none focus:border-sky-500 shadow-inner font-bold">
-                      <option value="" disabled>Select Supplier</option>
-                      {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                  </div>
                 </div>
 
                 {/* Right Column: Images */}
                 <div className="space-y-6">
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between mb-4 px-1">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        Initial Stock
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">In DB</label>
+                        <div className="w-full px-4 py-3.5 bg-white dark:bg-slate-950 rounded-2xl border border-transparent shadow-inner font-bold text-slate-800 dark:text-white">
+                          {formExistingStock}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
+                          Quantity
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="Quantity"
+                          value={formData.initial_quantity}
+                          onChange={e => setFormData({ ...formData, initial_quantity: e.target.value })}
+                          className="w-full px-4 py-3.5 bg-white dark:bg-slate-950 rounded-2xl border border-transparent focus:border-sky-500 outline-none transition-all shadow-inner font-bold"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <select
+                          value={formData.warehouse_id}
+                          onChange={e => setFormData({ ...formData, warehouse_id: e.target.value })}
+                          className="w-full px-4 py-3.5 bg-white dark:bg-slate-950 rounded-2xl border border-transparent focus:border-sky-500 outline-none transition-all shadow-inner font-bold"
+                        >
+                          <option value="">Select Warehouse</option>
+                          {warehouses.map(warehouse => (
+                            <option key={warehouse.id} value={warehouse.id}>{warehouse.name} ({warehouse.location})</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 px-1">
                       <FiUploadCloud className="text-sky-400" /> Product Images
@@ -705,8 +823,10 @@ export default function Products() {
                 </div>
               </div>
               <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-800 mt-4">
-                <button type="button" onClick={() => setIsFormModalOpen(false)} className="px-8 py-3.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-[0.2em] transition-all">Cancel</button>
-                <button type="submit" className="px-10 py-3.5 text-xs font-black rounded-2xl text-white bg-sky-500 hover:bg-sky-600 shadow-xl shadow-sky-200 dark:shadow-none uppercase tracking-[0.2em] transition-all active:scale-95">Save Product</button>
+                <div className="flex justify-end gap-3">
+                  <button type="button" onClick={() => setIsFormModalOpen(false)} className="px-8 py-3.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-[0.2em] transition-all">Cancel</button>
+                  <button type="submit" className="px-10 py-3.5 text-xs font-black rounded-2xl text-white bg-sky-500 hover:bg-sky-600 shadow-xl shadow-sky-200 dark:shadow-none uppercase tracking-[0.2em] transition-all active:scale-95">Save Product</button>
+                </div>
               </div>
             </form>
           </div>
@@ -725,7 +845,7 @@ export default function Products() {
                  <label className="block text-[10px] text-slate-400 font-black uppercase tracking-widest mb-3 px-1">New Category</label>
                  <div className="flex gap-2">
                     <input type="text" placeholder="Category Name..." value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="flex-1 px-4 py-3 text-sm bg-white dark:bg-slate-950 rounded-2xl border border-transparent focus:border-sky-500 outline-none font-bold shadow-sm" />
-                    <button onClick={handleQuickCategoryAdd} disabled={isAddingCategory || !newCategoryName.trim()} className="px-6 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-black transition-all shadow-lg shadow-sky-200 dark:shadow-none disabled:opacity-50 active:scale-95">{isAddingCategory ? "..." : <FiPlus size={20}/>}</button>
+                    <button type="button" onClick={handleQuickCategoryAdd} disabled={isAddingCategory || !newCategoryName.trim()} className="px-6 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-black transition-all shadow-lg shadow-sky-200 dark:shadow-none disabled:opacity-50 active:scale-95">{isAddingCategory ? "..." : <FiPlus size={20}/>}</button>
                  </div>
               </div>
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">

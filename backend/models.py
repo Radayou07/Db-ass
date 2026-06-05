@@ -90,6 +90,21 @@ class UnitOfMeasure(db.Model):
         }
 
 
+class Brand(db.Model):
+    __tablename__ = "brand"
+
+    id      = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name    = db.Column(db.String(100), nullable=False, unique=True)
+    country = db.Column(db.String(100), nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "country": self.country
+        }
+
+
 class Product(db.Model):
     __tablename__ = "product"
 
@@ -97,11 +112,10 @@ class Product(db.Model):
     name        = db.Column(db.String(150), nullable=False)
     description = db.Column(db.Text, nullable=True)
     price       = db.Column(db.Numeric(10, 2), nullable=False)
-    company     = db.Column(db.String(100), nullable=False)
+    brand_id    = db.Column(db.Integer, db.ForeignKey("brand.id"), nullable=True)
     expire      = db.Column(db.Date, nullable=True)
     category_id = db.Column(db.Integer, db.ForeignKey("category.id"), nullable=False)
     uom_id      = db.Column(db.Integer, db.ForeignKey("unit_of_measure.id"), nullable=True)
-    supplier_id = db.Column(db.Integer, db.ForeignKey("supplier.id"), nullable=True)
     
     # Discounts
     discount_percent    = db.Column(db.Numeric(5, 2), default=0)
@@ -110,7 +124,7 @@ class Product(db.Model):
     # Relationships
     category = db.relationship("Category", backref=db.backref("products", lazy=True))
     uom      = db.relationship("UnitOfMeasure", backref=db.backref("products", lazy=True))
-    supplier = db.relationship("Supplier", backref=db.backref("products", lazy=True))
+    brand    = db.relationship("Brand", backref=db.backref("products", lazy=True))
     images   = db.relationship("ProductImage", backref="product", cascade="all, delete-orphan", lazy=True)
 
     def to_dict(self):
@@ -127,14 +141,14 @@ class Product(db.Model):
             "name": self.name,
             "description": self.description,
             "price": float(self.price),
-            "company": self.company,
+            "brand_id": self.brand_id,
+            "brand_name": self.brand.name if self.brand else None,
+            "company": self.brand.name if self.brand else None,
             "expire": self.expire.isoformat() if self.expire else None,
             "category_id": self.category_id,
             "uom_id": self.uom_id,
             "uom_name": self.uom.name if self.uom else None,
             "uom_abbreviation": self.uom.abbreviation if self.uom else None,
-            "supplier_id": self.supplier_id,
-            "supplier_name": self.supplier.name if self.supplier else "No Supplier",
             "discount_percent": float(self.discount_percent) if self.discount_percent else 0,
             "discount_expires_at": self.discount_expires_at.isoformat() if self.discount_expires_at else None,
             "sale_price": round(sale_price, 2),
@@ -346,6 +360,50 @@ class Supplier(db.Model):
         if primary_image:
             primary_image = primary_image.replace(":5000/", ":5001/")
 
+        purchases = Purchase.query.filter_by(supplier_id=self.id).order_by(Purchase.date.desc(), Purchase.id.desc()).all()
+        purchase_ids = [purchase.id for purchase in purchases]
+        total_purchase_amount = 0
+        outstanding_amount = 0
+
+        if purchase_ids:
+            details = PurchaseDetail.query.filter(PurchaseDetail.purchase_id.in_(purchase_ids)).all()
+            detail_totals = {}
+            for detail in details:
+                line_total = float(detail.price) * detail.quantity
+                total_purchase_amount += line_total
+                detail_totals[detail.purchase_id] = detail_totals.get(detail.purchase_id, 0) + line_total
+            paid_rows = PaymentSupplier.query.filter(
+                PaymentSupplier.purchase_id.in_(purchase_ids),
+                PaymentSupplier.status == 1
+            ).all()
+            paid_totals = {}
+            for payment in paid_rows:
+                paid_totals[payment.purchase_id] = paid_totals.get(payment.purchase_id, 0) + float(payment.amount)
+            outstanding_amount = sum(
+                max(detail_totals.get(purchase.id, 0) - paid_totals.get(purchase.id, 0), 0)
+                for purchase in purchases
+                if purchase.status != "cancelled"
+            )
+
+        active_links = [link for link in self.product_links if link.is_active]
+        source_products = [
+            {
+                "id": link.product_id,
+                "name": link.product.name if link.product else f"Product #{link.product_id}",
+                "unit_price": float(link.unit_price)
+            }
+            for link in active_links[:8]
+        ]
+        recent_purchases = [
+            {
+                "id": purchase.id,
+                "date": purchase.date.isoformat(),
+                "status": purchase.status,
+                "total_amount": round(sum(float(detail.price) * detail.quantity for detail in purchase.details), 2)
+            }
+            for purchase in purchases[:5]
+        ]
+
         return {
             "id": self.id,
             "name": self.name,
@@ -353,7 +411,14 @@ class Supplier(db.Model):
             "email": self.email,
             "address": self.address,
             "image_url": primary_image,
-            "images": [img.to_dict() for img in self.images]
+            "images": [img.to_dict() for img in self.images],
+            "source_count": len(active_links),
+            "purchase_count": len(purchases),
+            "pending_purchase_count": sum(1 for purchase in purchases if purchase.status == "pending"),
+            "total_purchase_amount": round(total_purchase_amount, 2),
+            "outstanding_amount": round(outstanding_amount, 2),
+            "source_products": source_products,
+            "recent_purchases": recent_purchases
         }
 
 
@@ -389,13 +454,53 @@ class SupplierImage(db.Model):
         }
 
 
+class SupplierProduct(db.Model):
+    __tablename__ = "supplier_product"
+    __table_args__ = (
+        db.UniqueConstraint("supplier_id", "product_id", name="uq_supplier_product"),
+    )
+
+    id          = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    supplier_id = db.Column(db.Integer, db.ForeignKey("supplier.id"), nullable=False)
+    product_id  = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
+    unit_price  = db.Column(db.Numeric(10, 2), nullable=False, default=0)
+    is_active   = db.Column(db.Boolean, default=True)
+
+    supplier = db.relationship("Supplier", backref=db.backref("product_links", lazy=True, cascade="all, delete-orphan"))
+    product  = db.relationship("Product", backref=db.backref("supplier_links", lazy=True, cascade="all, delete-orphan"))
+
+    def to_dict(self):
+        product = self.product
+        supplier = self.supplier
+        stock = db.session.query(db.func.sum(Inventory.inventory_quantity))\
+            .filter(Inventory.product_id == self.product_id).scalar() or 0
+        return {
+            "id": self.id,
+            "supplier_id": self.supplier_id,
+            "supplier_name": supplier.name if supplier else None,
+            "product_id": self.product_id,
+            "product_name": product.name if product else None,
+            "unit_price": float(self.unit_price),
+            "is_active": self.is_active,
+            "price": float(product.price) if product else None,
+            "brand_id": product.brand_id if product else None,
+            "brand_name": product.brand.name if product and product.brand else None,
+            "category_id": product.category_id if product else None,
+            "category_name": product.category.name if product and product.category else None,
+            "uom_id": product.uom_id if product else None,
+            "uom_name": product.uom.name if product and product.uom else None,
+            "uom_abbreviation": product.uom.abbreviation if product and product.uom else None,
+            "stock": int(stock),
+        }
+
+
 class Orders(db.Model):
     __tablename__ = "orders"
 
     id          = db.Column(db.Integer, primary_key=True, autoincrement=True)
     date        = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
-    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=True)
     
     # Discounts
     discount_id     = db.Column(db.Integer, db.ForeignKey("discount.id"), nullable=True)

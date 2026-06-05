@@ -18,6 +18,7 @@ import Inventories from "./pages/Inventories"
 import Orders    from './pages/Orders'
 import Customers from './pages/Customers'
 import Suppliers from './pages/Suppliers'
+import Brands    from './pages/Brands'
 import Staff     from './pages/Staff'
 import Analysis  from './pages/Analysis'
 import Discounts from './pages/Discounts'
@@ -101,6 +102,7 @@ function AppContent() {
             <Route path="orders"     element={<Orders />} />
             <Route path="customers"  element={<Customers />} />
             <Route path="suppliers"  element={<Suppliers />} />
+            <Route path="brands"     element={<Brands />} />
             <Route path="staff"      element={<ProtectedRoute allowedRoles={['admin']}><Staff /></ProtectedRoute>} />
             <Route path="analysis"   element={<Analysis />} />
             <Route path="discounts"  element={<Discounts />} />
