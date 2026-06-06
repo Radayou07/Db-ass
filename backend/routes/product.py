@@ -77,11 +77,18 @@ def clean_image_urls(images):
     return [str(url).strip() for url in images if str(url).strip()]
 
 def product_response(product, total_stock=0, category_name=None, uom_name=None, uom_abbreviation=None, warehouse_id=None):
+    # 1. Try to get cost from actual purchase history
     last_purchase = PurchaseDetail.query.filter_by(product_id=product.id)\
         .join(Purchase)\
         .order_by(Purchase.date.desc(), Purchase.id.desc())\
         .first()
-    last_cost = float(last_purchase.price) if last_purchase else 0
+    
+    last_cost = 0
+    if last_purchase:
+        last_cost = float(last_purchase.price)
+    elif product.supplier_links:
+        # 2. Fallback to the established supplier link price
+        last_cost = float(product.supplier_links[0].unit_price)
 
     try:
         images = [img.to_dict() for img in product.images]
@@ -243,11 +250,55 @@ def create_product():
 
         print("Adding product to session...")
         db.session.add(new_product)
+        db.session.flush() # Get ID for links
+
+        # ─── Handle Supplier Link ───
+        source_supplier_id = data.get("source_supplier_id")
+        source_unit_price = data.get("source_unit_price")
         
+        print(f"[DEBUG] Supplier Link Data - ID: {source_supplier_id}, Price: {source_unit_price}")
+        
+        if source_supplier_id:
+            try:
+                supplier_id_int = int(source_supplier_id)
+                supplier_link = SupplierProduct(
+                    supplier_id=supplier_id_int,
+                    product_id=new_product.id,
+                    unit_price=float(source_unit_price or 0),
+                    is_active=True # Explicitly set to True
+                )
+                db.session.add(supplier_link)
+                print(f"[SUCCESS] Supplier link queued for creation: Supplier {supplier_id_int} -> Product {new_product.id}")
+            except Exception as e:
+                print(f"[ERROR] Failed to create supplier link: {str(e)}")
+                # We don't raise here to allow product creation to continue, 
+                # but we log it clearly for debugging.
+
         initial_qty = product_data["initial_quantity"]
         warehouse_id = product_data["warehouse_id"]
-        if initial_qty is not None and warehouse_id is not None:
+        
+        # ─── Create Purchase History for Initial Stock ───
+        if initial_qty is not None and initial_qty > 0 and source_supplier_id:
+            new_purchase = Purchase(
+                date=datetime.utcnow().date(),
+                supplier_id=int(source_supplier_id),
+                employee_id=int(get_jwt_identity()),
+                status="received",
+                note="Initial stock from product registration"
+            )
+            db.session.add(new_purchase)
             db.session.flush()
+
+            purchase_detail = PurchaseDetail(
+                purchase_id=new_purchase.id,
+                product_id=new_product.id,
+                quantity=int(initial_qty),
+                price=float(source_unit_price or 0)
+            )
+            db.session.add(purchase_detail)
+            print(f"Purchase history created: Purchase #{new_purchase.id}")
+
+        if initial_qty is not None and warehouse_id is not None:
             new_inv = Inventory(
                 product_id=new_product.id,
                 warehouse_id=warehouse_id,
@@ -396,6 +447,35 @@ def update_product(id):
                         db.session.expunge(obj)
 
         print("Finalizing database commit for update...")
+        
+        # ─── Handle Supplier Link Update ───
+        source_supplier_id = data.get("source_supplier_id")
+        source_unit_price = data.get("source_unit_price") or data.get("buy_cost")
+        
+        if source_supplier_id:
+            supplier_link = SupplierProduct.query.filter_by(
+                supplier_id=int(source_supplier_id),
+                product_id=id
+            ).first()
+            
+            if supplier_link:
+                supplier_link.unit_price = float(source_unit_price or 0)
+                print(f"Supplier link updated: Supplier {source_supplier_id} -> Product {id}")
+            else:
+                new_link = SupplierProduct(
+                    supplier_id=int(source_supplier_id),
+                    product_id=id,
+                    unit_price=float(source_unit_price or 0),
+                    is_active=True
+                )
+                db.session.add(new_link)
+                print(f"New supplier link established for update: Supplier {source_supplier_id} -> Product {id}")
+        
+        elif source_unit_price and product.supplier_links:
+            # Fallback: Update the first established supplier link if no ID provided
+            product.supplier_links[0].unit_price = float(source_unit_price)
+            print(f"Primary supplier link cost updated via general edit for Product {id}")
+
         db.session.commit()
         print("--- MASTER PARAMETERS SYNCHRONIZED ---")
         return jsonify({"message": "Master parameters synchronized successfully."}), 200
@@ -443,22 +523,45 @@ def get_categories():
 def create_category():
     data = request.get_json(silent=True) or {}
     name = data.get("name", "").strip()
-
     if not name:
         return jsonify({"error": "Category name is required."}), 400
 
     try:
         if Category.query.filter_by(name=name).first():
             return jsonify({"error": "Category already exists."}), 409
-
         new_cat = Category(name=name)
         db.session.add(new_cat)
         db.session.commit()
         return jsonify(new_cat.to_dict()), 201
     except Exception as e:
         db.session.rollback()
-        print(f"Database error: {str(e)}")
         return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+
+@category_bp.route("/<id>", methods=["DELETE", "OPTIONS"])
+@jwt_required()
+def delete_category(id):
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+        
+    print(f"[DEBUG] Delete request for category: {id}")
+    try:
+        category_id = int(id)
+        category = Category.query.get(category_id)
+        if not category:
+            return jsonify({"error": "Category not found."}), 404
+
+        if Product.query.filter_by(category_id=category_id).first():
+            return jsonify({"error": "Cannot delete category while products are assigned to it."}), 400
+
+        db.session.delete(category)
+        db.session.commit()
+        return jsonify({"message": "Category removed."}), 200
+    except ValueError:
+        return jsonify({"error": "Invalid category ID."}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 # ─────────────────────────────────────────
 # UNIT OF MEASURE ENDPOINTS

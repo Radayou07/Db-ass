@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useAuth } from "../context/AuthContext"
+import { useToast } from "../context/ToastContext"
 import {
   FiSearch, FiPlus, FiEdit2, FiTrash2, FiX,
   FiTruck, FiUsers, FiMail, FiPhone, FiMapPin,
@@ -83,6 +84,7 @@ function ConfirmDelete({ name, onConfirm, onClose }) {
 /* ─── Purchase Order Modal (Create Order) ─── */
 function PurchaseOrderModal({ supplier, onClose, onSave }) {
   const { authFetch } = useAuth()
+  const { toast } = useToast()
   const [catalog, setCatalog] = useState([])
   const [catalogLoading, setCatalogLoading] = useState(true)
   const [items, setItems] = useState([{ product_id: "", quantity: 1, price: 0 }])
@@ -121,7 +123,7 @@ function PurchaseOrderModal({ supplier, onClose, onSave }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (items.some(i => !i.product_id || i.quantity <= 0)) return alert("Invalid items in list")
+    if (items.some(i => !i.product_id || i.quantity <= 0)) return toast("Purchase order list contains invalid quantities", "error")
     setLoading(true)
     await onSave({ supplier_id: supplier.id, note, items })
     setLoading(false)
@@ -284,6 +286,7 @@ function ReceiptModal({ purchase, warehouses, onClose, onConfirm }) {
 /* ─── Add Product From Supplier Modal ─── */
 function SupplierProductCreateModal({ supplier, initialProduct, brands, categories, units, warehouses, onClose, onCreated }) {
   const { authFetch } = useAuth()
+  const { toast } = useToast()
   const isModify = Boolean(initialProduct?.product_id)
   const initialCost = initialProduct?.unit_price || ""
   const [form, setForm] = useState({
@@ -353,11 +356,12 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
       if (res.ok) {
         const { urls } = await res.json()
         setForm(prev => ({ ...prev, images: [...prev.images, ...urls] }))
+        toast("Product media uploaded to cloud")
       } else {
-        alert("Failed to upload product images.")
+        toast("Media upload synchronization failed", "error")
       }
     } catch (err) {
-      alert("Upload error.")
+      toast("Image service connection timeout", "error")
     } finally {
       setUploadingProductImages(false)
       event.target.value = null
@@ -398,6 +402,7 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
       setCategoryOptions(prev => [...prev, result])
       setForm(prev => ({ ...prev, category_id: result.id }))
       setQuickCategoryName("")
+      toast("Category added via quick-link")
     } catch (err) {
       setQuickCategoryError("Network error while adding category.")
     } finally {
@@ -411,7 +416,7 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
     const buyCost = Number(form.buy_cost) || 0
 
     if (!isModify && quantity > 0 && buyCost <= 0) {
-      alert("Buy cost is required to create purchase history.")
+      toast("Acquisition cost is required for historical tracking", "error")
       return
     }
 
@@ -431,8 +436,10 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
         images: form.images,
       }
 
+      console.log("[DEBUG] Sending product payload to API:", payload)
+
       if (isModify) {
-        payload.initial_quantity = quantity
+        // Quantity is read-only in modify mode to enforce PO-based stock management
       } else {
         payload.initial_quantity = quantity
         payload.source_purchase_quantity = quantity
@@ -445,13 +452,14 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
 
       if (!res.ok) {
         const err = await res.json()
-        alert(err.error || (isModify ? "Failed to modify product." : "Failed to add product."))
+        toast(err.error || (isModify ? "Record update failed" : "New entry registration failed"), "error")
         return
       }
 
+      toast(isModify ? "Product record modified successfully" : "New product added to catalog")
       onCreated()
     } catch (err) {
-      alert("Network failure.")
+      toast("Database gateway error", "error")
     } finally {
       setSaving(false)
     }
@@ -609,16 +617,16 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
             <section className="rounded-[1.25rem] border border-sky-100 dark:border-sky-900/40 bg-sky-50/40 dark:bg-sky-950/10 p-3">
               <h4 className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-widest mb-3">Stock & Photos</h4>
               <div className="space-y-2.5">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">In DB</label>
-                    <div className="w-full px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-transparent shadow-inner font-bold text-sm text-slate-800 dark:text-white">
-                      {existingAmount}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">{isModify ? "Stock Qty" : "Buy Qty"}</label>
-                    <input type="number" min="0" step="1" value={form.initial_quantity} onChange={set("initial_quantity")} className="w-full px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-500 outline-none shadow-inner font-bold text-sm" />
+                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">{isModify ? "Current Stock (Read Only)" : "Initial Qty"}</label>
+                    <input 
+                      type="number" 
+                      readOnly={isModify}
+                      value={form.initial_quantity} 
+                      onChange={!isModify ? set("initial_quantity") : undefined} 
+                      className={`w-full px-3 py-2 rounded-xl border border-transparent outline-none shadow-inner font-bold text-sm ${isModify ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed" : "bg-white dark:bg-slate-900 focus:border-sky-500"}`} 
+                    />
                   </div>
                   <div>
                     <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Expire</label>
@@ -672,8 +680,9 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
 }
 
 /* ─── Supplier Details Modal ─── */
-function SupplierDetailsModal({ supplier, brands, categories, units, warehouses, onClose, onReceive, onUpdate, refreshKey = 0 }) {
+function SupplierDetailsModal({ supplier, brands, categories, units, warehouses, onClose, onReceive, onDecline, onUpdate, refreshKey = 0 }) {
   const { authFetch } = useAuth()
+  const { toast } = useToast()
   const [history, setHistory] = useState([])
   const [catalog, setCatalog] = useState([])
   const [purchaseDetails, setPurchaseDetails] = useState({})
@@ -734,7 +743,7 @@ function SupplierDetailsModal({ supplier, brands, categories, units, warehouses,
     try {
       const res = await authFetch(`/products/${item.product_id}`)
       if (!res.ok) {
-        alert("Could not load product for modification.")
+        toast("Failed to retrieve product specifications", "error")
         return
       }
       const product = await res.json()
@@ -747,7 +756,7 @@ function SupplierDetailsModal({ supplier, brands, categories, units, warehouses,
         unit_price: item.unit_price,
       })
     } catch (err) {
-      alert("Network failure while loading product.")
+      toast("Internal spec gateway error", "error")
     }
   }
 
@@ -778,13 +787,13 @@ function SupplierDetailsModal({ supplier, brands, categories, units, warehouses,
       if (res.ok) {
         const data = await res.json()
         if (onUpdate) onUpdate()
-        alert("Supplier image updated!")
+        toast("Supplier identity photo updated")
       } else {
         const err = await res.json()
-        alert(err.error || "Failed to upload image")
+        toast(err.error || "Logo synchronization failed", "error")
       }
     } catch (err) {
-      alert("Upload error")
+      toast("Cloud storage upload error", "error")
     } finally {
       setUploading(false)
     }
@@ -956,6 +965,30 @@ function SupplierDetailsModal({ supplier, brands, categories, units, warehouses,
 
                           return (
                             <div key={purchase.id} className="rounded-[2rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+                              {purchase.status === "pending" && (
+                                <div className="flex border-b border-black/5 dark:border-white/5">
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation()
+                                      onReceive(purchase)
+                                    }}
+                                    className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <FiCheck size={14}/> Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation()
+                                      onDecline(purchase.id)
+                                    }}
+                                    className="flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-black uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <FiX size={14}/> Decline
+                                  </button>
+                                </div>
+                              )}
                               <div
                                 role="button"
                                 tabIndex={0}
@@ -971,18 +1004,6 @@ function SupplierDetailsModal({ supplier, brands, categories, units, warehouses,
                                     <span className="text-[10px] font-black uppercase tracking-widest">{new Date(purchase.date).toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'})}</span>
                                   </div>
                                   <div className="flex items-center gap-3">
-                                    {purchase.status === "pending" && (
-                                      <button
-                                        type="button"
-                                        onClick={(event) => {
-                                          event.stopPropagation()
-                                          onReceive(purchase)
-                                        }}
-                                        className="px-3 py-1 rounded-full bg-emerald-500 text-white text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 transition-all"
-                                      >
-                                        Approve Stock
-                                      </button>
-                                    )}
                                     <span className={`text-[9px] px-3 py-1 rounded-full font-black uppercase tracking-[0.2em] border shadow-sm ${
                                       purchase.status === 'received' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800' : 
                                       purchase.status === 'pending' ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20 dark:border-amber-800' : 
@@ -1443,6 +1464,7 @@ function SupplierProfilePanel({ supplier, onClose, onView, onEdit, onNewPO }) {
 /* ─── Page ─── */
 export default function Suppliers() {
   const { authFetch, user } = useAuth()
+  const { toast } = useToast()
   const [suppliers, setSuppliers] = useState([])
   const [warehouses, setWarehouses] = useState([])
   const [brands, setBrands] = useState([])
@@ -1529,26 +1551,38 @@ export default function Suppliers() {
 
     try {
       const res = await authFetch(url, { method, body: JSON.stringify(form) })
-      if (res.ok) { setModal(null); fetchInitialData() }
-      else { alert((await res.json()).error || "Save error.") }
-    } catch (err) { alert("Network failure.") }
+      if (res.ok) { 
+        toast(isEdit ? "Supplier profile updated" : "New vendor registered")
+        setModal(null); 
+        fetchInitialData() 
+      }
+      else { toast((await res.json()).error || "Registration failure", "error") }
+    } catch (err) { toast("Vendor gateway timeout", "error") }
   }
 
   async function handleDelete() {
     if (!delTarget) return
     try {
       const res = await authFetch(`/suppliers/${delTarget.id}`, { method: "DELETE" })
-      if (res.ok) { fetchInitialData(); setDelTarget(null) }
-      else { alert((await res.json()).error) }
-    } catch (err) { alert("Delete error.") }
+      if (res.ok) { 
+        toast("Supplier purged from system")
+        fetchInitialData(); 
+        setDelTarget(null) 
+      }
+      else { toast((await res.json()).error, "error") }
+    } catch (err) { toast("Deletion procedure failed", "error") }
   }
 
   async function handleCreatePO(data) {
     try {
       const res = await authFetch("/purchases", { method: "POST", body: JSON.stringify(data) })
-      if (res.ok) { setPoTarget(null); fetchInitialData() }
-      else { alert((await res.json()).error) }
-    } catch (err) { alert("Failed to create order.") }
+      if (res.ok) { 
+        toast("Purchase Order finalized and pending approval")
+        setPoTarget(null); 
+        fetchInitialData() 
+      }
+      else { toast((await res.json()).error, "error") }
+    } catch (err) { toast("PO generation failed", "error") }
   }
 
   async function handleReceive(id, warehouse_id) {
@@ -1558,12 +1592,34 @@ export default function Suppliers() {
         body: JSON.stringify({ status: "received", warehouse_id }) 
       })
       if (res.ok) {
+        toast("Stock successfully received into warehouse inventory")
         setReceiveTarget(null)
         setDetailRefreshKey(key => key + 1)
         fetchInitialData()
       }
-      else { alert((await res.json()).error) }
-    } catch (err) { alert("Failed to update stock.") }
+      else { 
+        const errData = await res.json()
+        toast(errData.error || "Inventory update failed", "error") 
+      }
+    } catch (err) { toast("Inventory update failed", "error") }
+  }
+
+  async function handleDecline(id) {
+    if (!window.confirm("Reject this purchase order? This action is permanent.")) return
+    try {
+      const res = await authFetch(`/purchases/${id}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "declined" })
+      })
+      if (res.ok) {
+        toast("Purchase order rejected and closed")
+        setDetailRefreshKey(key => key + 1)
+        fetchInitialData()
+      } else {
+        const errData = await res.json()
+        toast(errData.error || "Action failed", "error")
+      }
+    } catch (err) { toast("Network synchronization error", "error") }
   }
 
   return (
@@ -1715,6 +1771,7 @@ export default function Suppliers() {
             warehouses={warehouses}
             onClose={() => setViewTarget(null)} 
             onReceive={(p) => setReceiveTarget(p)}
+            onDecline={handleDecline}
             onUpdate={fetchInitialData}
             refreshKey={detailRefreshKey}
           />

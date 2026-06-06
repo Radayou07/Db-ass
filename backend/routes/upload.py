@@ -1,7 +1,7 @@
 import os
-import uuid
-from flask import Blueprint, request, jsonify, current_app
-from werkzeug.utils import secure_filename
+import base64
+import requests
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
 upload_bp = Blueprint("upload", __name__)
@@ -15,47 +15,50 @@ def allowed_file(filename):
 @upload_bp.route("", methods=["POST"])
 @jwt_required()
 def upload_files():
-    print("Upload request received") # Basic server-side logging
+    api_key = os.getenv("IMGBB_API_KEY")
+    if not api_key:
+        return jsonify({"error": "ImgBB API key not configured on server"}), 500
+
     if 'images' not in request.files:
-        print("Error: No images part in request.files")
         return jsonify({"error": "No image parts in the request"}), 400
     
     files = request.files.getlist('images')
     if not files or files[0].filename == '':
-        print("Error: No files selected")
         return jsonify({"error": "No files selected for upload"}), 400
 
     urls = []
-    upload_folder = os.path.join(current_app.root_path, 'static', 'uploads')
     
-    try:
-        if not os.path.exists(upload_folder):
-            os.makedirs(upload_folder, exist_ok=True)
-            print(f"Created directory: {upload_folder}")
-    except Exception as e:
-        print(f"Directory creation error: {str(e)}")
-        return jsonify({"error": f"Server storage error: {str(e)}"}), 500
-
     for file in files:
         if file and allowed_file(file.filename):
             try:
-                # Generate a unique secure filename
-                ext = file.filename.rsplit('.', 1)[1].lower()
-                filename = secure_filename(f"{uuid.uuid4().hex}.{ext}")
+                # Read file and encode to base64
+                file_content = file.read()
+                base64_image = base64.b64encode(file_content).decode('utf-8')
                 
-                file_path = os.path.join(upload_folder, filename)
-                file.save(file_path)
-                print(f"File saved to: {file_path}")
+                # Upload to ImgBB
+                response = requests.post(
+                    "https://api.imgbb.com/1/upload",
+                    data={
+                        "key": api_key,
+                        "image": base64_image,
+                    },
+                    timeout=30
+                )
                 
-                # Create a URL that can be reached via the static server
-                url = f"http://localhost:5001/static/uploads/{filename}"
-                urls.append(url)
+                res_data = response.json()
+                
+                if response.status_code == 200 and res_data.get("success"):
+                    # Get the direct display URL
+                    url = res_data["data"]["url"]
+                    urls.append(url)
+                else:
+                    error_msg = res_data.get("error", {}).get("message", "Unknown ImgBB error")
+                    return jsonify({"error": f"ImgBB Error: {error_msg}"}), response.status_code
+                    
             except Exception as e:
-                print(f"File save error: {str(e)}")
-                return jsonify({"error": f"Failed to save {file.filename}: {str(e)}"}), 500
+                print(f"ImgBB upload error: {str(e)}")
+                return jsonify({"error": f"Failed to upload {file.filename} to cloud storage"}), 500
         else:
-            print(f"Error: Invalid file type for {file.filename}")
             return jsonify({"error": f"Invalid file type for {file.filename}. Supported: png, jpg, jpeg, gif, webp"}), 400
 
-    print(f"Successfully uploaded {len(urls)} files")
     return jsonify({"urls": urls}), 201

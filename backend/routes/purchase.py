@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy import func
 from extensions import db
-from models import Purchase, PurchaseDetail, Product, Inventory, Employee, Supplier, SupplierProduct
+from models import Purchase, PurchaseDetail, Product, Inventory, Employee, Supplier, SupplierProduct, Warehouse
 from datetime import datetime
 
 purchase_bp = Blueprint("purchase", __name__)
@@ -130,7 +131,7 @@ def update_purchase_status(id):
     if purchase.status != "pending":
         return jsonify({"error": f"Cannot update status from {purchase.status}"}), 400
 
-    if new_status not in ["received", "cancelled"]:
+    if new_status not in ["received", "cancelled", "declined"]:
         return jsonify({"error": "Invalid status choice."}), 400
 
     try:
@@ -138,8 +139,23 @@ def update_purchase_status(id):
             if not warehouse_id:
                 return jsonify({"error": "Warehouse ID is required to mark as received."}), 400
 
-            # 1. Update stock levels for each item in the purchase
+            warehouse = Warehouse.query.get(warehouse_id)
+            if not warehouse:
+                return jsonify({"error": "Target warehouse not found."}), 404
+
+            # 1. Calculate incoming volume
             details = PurchaseDetail.query.filter_by(purchase_id=id).all()
+            incoming_qty = sum(item.quantity for item in details)
+
+            # 2. Check current warehouse utilization
+            current_usage = db.session.query(func.sum(Inventory.inventory_quantity)).filter_by(warehouse_id=warehouse_id).scalar() or 0
+            
+            if current_usage + incoming_qty > warehouse.capacity:
+                return jsonify({
+                    "error": f"Warehouse capacity exceeded. Available space: {warehouse.capacity - current_usage}, Incoming: {incoming_qty}"
+                }), 400
+
+            # 3. Update stock levels for each item in the purchase
             for item in details:
                 inv_record = Inventory.query.filter_by(
                     product_id=item.product_id, 
@@ -161,7 +177,7 @@ def update_purchase_status(id):
 
         purchase.status = new_status
         db.session.commit()
-        return jsonify({"message": f"Purchase order {new_status}."}), 200
+        return jsonify({"message": f"Purchase order {new_status} successfully."}), 200
 
     except Exception as e:
         db.session.rollback()

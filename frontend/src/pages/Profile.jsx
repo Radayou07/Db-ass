@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react"
 import { useAuth } from "../context/AuthContext"
+import { useToast } from "../context/ToastContext"
 import { FiUser, FiMail, FiPhone, FiEdit3, FiCheck, FiX, FiInfo, FiCamera, FiLoader } from "react-icons/fi"
 
 export default function Profile() {
   const { user, authFetch, updateUser } = useAuth()
+  const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
@@ -35,13 +37,13 @@ export default function Profile() {
       if (res.ok) {
         const data = await res.json()
         updateUser(data.user)
-        alert("Profile updated!")
+        toast("Profile identity updated successfully")
         setIsEditing(false)
       } else {
-        alert("Failed to update profile")
+        toast("Failed to update profile", "error")
       }
     } catch (err) {
-      alert("Network error")
+      toast("Identity update failed due to network error", "error")
     } finally {
       setLoading(false)
     }
@@ -67,13 +69,13 @@ export default function Profile() {
       if (res.ok) {
         const data = await res.json()
         updateUser(data.user)
-        alert("Profile image updated!")
+        toast("Identity photo synchronized to cloud storage")
       } else {
         const err = await res.json()
-        alert(err.error || "Failed to upload image")
+        toast(err.error || "Image upload synchronization failed", "error")
       }
     } catch (err) {
-      alert("Upload error")
+      toast("Cloud storage connection timeout", "error")
     } finally {
       setUploading(false)
     }

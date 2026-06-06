@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "../context/AuthContext"
+import { useToast } from "../context/ToastContext"
 import { useNavigate, useLocation } from "react-router-dom"
 import { 
   FiSearch, FiEdit2, FiTrash2, FiPlus, FiGrid, FiList, 
-  FiPackage, FiTag, FiDollarSign, FiArchive, FiX, FiActivity, FiCalendar, FiImage, FiPlusCircle, FiMinusCircle, FiUploadCloud, FiHome, FiFolder, FiShoppingCart, FiCheck, FiCreditCard 
+  FiPackage, FiTag, FiDollarSign, FiArchive, FiX, FiActivity, FiCalendar, FiImage, FiPlusCircle, FiMinusCircle, FiUploadCloud, FiHome, FiFolder, FiShoppingCart, FiCheck, FiCreditCard, FiShield, FiBox
 } from "react-icons/fi"
 
 /* ─── Product Card Component ─── */
@@ -278,7 +279,7 @@ function BuyModal({ product, onConfirm, onClose }) {
             </div>
 
             <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-800 pt-6 px-1">
-               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Grand Total</p>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Grand Total</p>
                <p className="text-3xl font-black text-slate-900 dark:text-white">${(product.price * qty).toFixed(2)}</p>
             </div>
 
@@ -315,6 +316,7 @@ function BuyModal({ product, onConfirm, onClose }) {
 
 export default function Products() {
   const { user, authFetch } = useAuth()
+  const { toast } = useToast()
   const location = useLocation()
   const navigate = useNavigate()
   
@@ -342,7 +344,8 @@ export default function Products() {
   
   // Input Form States
   const [formData, setFormData] = useState({
-    name: "", description: "", price: "", brand_id: "", expire: "", category_id: "", uom_id: "", initial_quantity: 0, warehouse_id: "", discount_percent: 0, discount_expires_at: "", existing_stock: 0, images: [] 
+    name: "", description: "", price: "", brand_id: "", expire: "", category_id: "", uom_id: "", initial_quantity: 0, warehouse_id: "", discount_percent: 0, discount_expires_at: "", existing_stock: 0, images: [],
+    buy_cost: "", markup_percent: "", profit_amount: ""
   })
 
   const [newCategoryName, setNewCategoryName] = useState("")
@@ -351,6 +354,36 @@ export default function Products() {
   const [isAddingCategory, setIsAddingCategory] = useState(false)
   const [isQuickAddingCategory, setIsQuickAddingCategory] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+
+  const updateBuyCost = (value) => {
+    const cost = Number(value) || 0
+    setFormData(prev => ({ ...prev, buy_cost: value, price: cost > 0 ? (cost * 1.3).toFixed(2) : prev.price }))
+  }
+
+  const applyMarkup = (markup) => {
+    const cost = Number(formData.buy_cost) || 0
+    if (cost > 0) setFormData(prev => ({ ...prev, price: (cost * markup).toFixed(2) }))
+  }
+
+  const applyMarkupPercent = (value) => {
+    const cost = Number(formData.buy_cost) || 0
+    const percent = Number(value) || 0
+    setFormData(prev => ({
+      ...prev,
+      markup_percent: value,
+      price: cost > 0 ? (cost * (1 + percent / 100)).toFixed(2) : prev.price
+    }))
+  }
+
+  const applyProfitAmount = (value) => {
+    const cost = Number(formData.buy_cost) || 0
+    const profit = Number(value) || 0
+    setFormData(prev => ({
+      ...prev,
+      profit_amount: value,
+      price: cost > 0 ? (cost + profit).toFixed(2) : prev.price
+    }))
+  }
 
   const isInternal = user?.role === "admin" || user?.role === "staff"
 
@@ -404,7 +437,8 @@ export default function Products() {
       initial_quantity: 0, warehouse_id: warehouses[0]?.id || "", 
       discount_percent: 0, discount_expires_at: "",
       existing_stock: 0,
-      images: [] 
+      images: [],
+      buy_cost: "", markup_percent: "", profit_amount: ""
     })
     setIsFormModalOpen(true)
   }
@@ -422,7 +456,8 @@ export default function Products() {
       discount_percent: product.discount_percent || 0,
       discount_expires_at: product.discount_expires_at ? product.discount_expires_at.split('T')[0] : "",
       existing_stock: Number(product.stock) || 0,
-      images: product.images?.length > 0 ? product.images.map(img => img.url) : []
+      images: product.images?.length > 0 ? product.images.map(img => img.url) : [],
+      buy_cost: product.last_cost || "", markup_percent: "", profit_amount: ""
     })
     setIsFormModalOpen(true)
   }
@@ -462,11 +497,12 @@ export default function Products() {
         setCategories(prev => [...prev, newCat])
         setFormData(prev => ({ ...prev, category_id: newCat.id }))
         setNewCategoryName("")
+        toast("New product category established")
       } else { 
         const errData = await response.json()
-        alert(errData.error || "Category already exists.") 
+        toast(errData.error || "Category registration failed", "error") 
       }
-    } catch (err) { alert("Network error") }
+    } catch (err) { toast("Category synchronization error", "error") }
     finally { setIsAddingCategory(false) }
   }
 
@@ -504,6 +540,7 @@ export default function Products() {
       setCategories(prev => [...prev, result])
       setFormData(prev => ({ ...prev, category_id: result.id }))
       setQuickCategoryName("")
+      toast("Category added via quick-link")
     } catch (err) {
       setQuickCategoryError("Network error while adding category.")
     } finally {
@@ -522,8 +559,9 @@ export default function Products() {
       if (response.ok) {
         const { urls } = await response.json()
         setFormData({ ...formData, images: [...formData.images, ...urls] })
-      } else { alert("Failed to upload images.") }
-    } catch (err) { alert("Upload error.") }
+        toast("Product media uploaded to cloud storage")
+      } else { toast("Media synchronization failed", "error") }
+    } catch (err) { toast("Cloud upload timeout", "error") }
     finally { setIsUploading(false); e.target.value = null }
   }
 
@@ -537,27 +575,51 @@ export default function Products() {
     const method = currentProduct ? "PUT" : "POST"
     const payload = { ...formData }
 
+    if (currentProduct) {
+      // Quantity is read-only in edit mode to enforce PO-based stock management
+      delete payload.initial_quantity
+    }
+
     try {
       const response = await authFetch(url, { method, body: JSON.stringify(payload) })
       if (response.ok) {
         await response.json()
         setIsFormModalOpen(false)
+        toast(currentProduct ? "Product record updated" : "Product catalog entry created")
         if (currentProduct && editReturnTo) {
           navigate(editReturnTo, { replace: true })
           return
         }
         fetchInitialData()
       }
-      else { const errData = await response.json(); alert(errData.error || "Failed to save product.") }
-    } catch (err) { alert("Network failure.") }
+      else { const errData = await response.json(); toast(errData.error || "Catalog persistence error", "error") }
+    } catch (err) { toast("Server gateway error", "error") }
   }
 
   const handleDeleteConfirm = async () => {
     try {
       const response = await authFetch(`/products/${currentProduct.id}`, { method: "DELETE" })
-      if (response.ok) { setIsDeleteModalOpen(false); setProducts(products.filter(p => p.id !== currentProduct.id)) }
-      else { alert("Cannot delete product with order history.") }
-    } catch (err) { alert("Network error.") }
+      if (response.ok) {
+        setIsDeleteModalOpen(false)
+        setProducts(products.filter(p => p.id !== currentProduct.id))
+        toast("Product successfully purged from system")
+      }
+      else { toast("Cannot delete product with historical order chain", "error") }
+    } catch (err) { toast("Action aborted: Connection failed", "error") }
+  }
+
+  const handleDeleteCategory = async (id) => {
+    if (!window.confirm("Purge this category from the system?")) return
+    try {
+      const response = await authFetch(`/categories/${id}`, { method: "DELETE" })
+      if (response.ok) {
+        setCategories(prev => prev.filter(c => c.id !== id))
+        toast("Product category successfully removed")
+      } else {
+        const errData = await response.json()
+        toast(errData.error || "Category removal rejected", "error")
+      }
+    } catch (err) { toast("Category gateway connection failed", "error") }
   }
 
   const handleBuy = async (productId, quantity, isPaid = false) => {
@@ -570,21 +632,21 @@ export default function Products() {
         })
       })
       if (res.ok) {
-        alert(isPaid ? "Order placed and paid! We'll process it soon." : "Order placed! Please pay at the counter.")
+        toast(isPaid ? "Transaction finalized! Media processing started." : "Order reserved! Pending manual verification.")
         setBuyTarget(null)
         fetchInitialData() 
       } else {
         const err = await res.json()
-        alert(err.error || "Failed to place order.")
+        toast(err.error || "Order placement failed", "error")
       }
-    } catch (err) { alert("Network failure.") }
+    } catch (err) { toast("Checkout gateway timeout", "error") }
   }
 
   const selectedFormUnit = units.find(unit => String(unit.id) === String(formData.uom_id))
   const formUnitLabel = selectedFormUnit?.abbreviation || selectedFormUnit?.name || "unit"
   const formQuantity = Number(formData.initial_quantity) || 0
   const formSellPrice = Number(formData.price) || 0
-  const formBuyCost = Number(formData.cost_input || formData.last_cost) || 0
+  const formBuyCost = Number(formData.buy_cost) || 0
   const formExistingStock = Number(formData.existing_stock) || 0
   const formSellTotal = formQuantity * formSellPrice
   const formBuyTotal = formQuantity * formBuyCost
@@ -662,157 +724,189 @@ export default function Products() {
 
       {/* ─── MODAL DIALOGS ─── */}
       {isFormModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md">
-          <div className="bg-box-bg dark:bg-box-dark-bg border border-box-border dark:border-box-dark-border w-full max-w-3xl rounded-[2.5rem] p-8 shadow-2xl flex flex-col gap-6 max-h-[95vh] overflow-hidden relative">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter text-slate-800 dark:text-white"><FiPackage size={24} className="text-sky-500" /> {currentProduct ? "Edit Product" : "Add New Product"}</h2>
-              <button onClick={() => setIsFormModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-xl bg-slate-50 dark:bg-slate-800"><FiX size={24} /></button>
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 pointer-events-none">
+          <div className="relative z-10 w-full max-w-5xl max-h-[90vh] bg-box-bg dark:bg-box-dark-bg rounded-[1.75rem] shadow-2xl border border-box-border dark:border-box-dark-border overflow-hidden flex flex-col pointer-events-auto">
+            <div className="shrink-0 px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{currentProduct ? "Modify Product" : "Add Product"}</h3>
+                <p className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] mt-1">Catalog Management</p>
+              </div>
+              <button onClick={() => setIsFormModalOpen(false)} className="p-2.5 rounded-2xl text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"><FiX size={22}/></button>
             </div>
-            
-            <form onSubmit={handleFormSubmit} className="space-y-6 text-sm overflow-y-auto pr-4 custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-6">
-                  <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Product Name *</label><input required type="text" placeholder="e.g. Mechanical Keyboard G-100" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner" /></div>
-                  <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Description</label><textarea rows="3" placeholder="Specs, features, etc..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner resize-none" /></div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Sell Price / {formUnitLabel} *</label><div className="relative"><FiDollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={16}/><input required type="number" step="0.01" min="0" placeholder="0.00" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full pl-10 pr-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" /></div></div>
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Brand *</label>
-                      <select required value={formData.brand_id} onChange={e => setFormData({...formData, brand_id: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold">
-                        <option value="" disabled>Select Brand</option>
-                        {brands.map(brand => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
-                      </select>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleFormSubmit} className="flex-1 min-h-0 overflow-hidden p-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                
+                {/* 1. Basics */}
+                <section className="rounded-[1.25rem] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/30 p-3">
+                  <h4 className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-widest mb-3">Product Basics</h4>
+                  <div className="space-y-2.5">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Discount %</label>
-                      <input type="number" step="0.01" min="0" max="100" placeholder="0" value={formData.discount_percent} onChange={e => setFormData({...formData, discount_percent: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" />
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Product Name *</label>
+                      <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-500 outline-none shadow-inner font-bold text-sm" />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Discount Expires</label>
-                      <input type="date" value={formData.discount_expires_at} onChange={e => setFormData({...formData, discount_expires_at: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent focus:bg-white dark:focus:bg-slate-950 focus:border-sky-500 outline-none transition-all shadow-inner font-bold" />
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Description</label>
+                      <textarea rows="1" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-500 outline-none shadow-inner resize-none text-sm" />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Category *</label>
-                      <select required value={formData.category_id} onChange={e => setFormData({...formData, category_id: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent outline-none focus:border-sky-500 shadow-inner font-bold">
-                        <option value="" disabled>Select Category</option>
-                        {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                      </select>
-                      <div className="mt-3 rounded-2xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 p-2 shadow-sm">
-                        <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Quick Add..."
-                          value={quickCategoryName}
-                          onChange={(e) => {
-                            setQuickCategoryName(e.target.value)
-                            if (quickCategoryError) setQuickCategoryError("")
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleProductQuickCategoryAdd(e)
-                          }}
-                          className="min-w-0 flex-1 px-3 py-2 text-[10px] bg-transparent outline-none font-bold text-slate-700 dark:text-slate-100 placeholder:text-slate-400"
-                        />
-                        <button type="button" onClick={handleProductQuickCategoryAdd} disabled={isQuickAddingCategory || !quickCategoryName.trim()} className="w-10 h-10 flex items-center justify-center bg-sky-500 text-white rounded-xl shadow-lg shadow-sky-200 dark:shadow-none disabled:opacity-50 active:scale-95">
-                          {isQuickAddingCategory ? <FiActivity className="animate-spin" size={16} /> : <FiPlus size={18}/>}
-                        </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Brand *</label>
+                        <select required value={formData.brand_id} onChange={e => setFormData({...formData, brand_id: e.target.value})} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-500 outline-none shadow-inner font-bold text-sm">
+                          <option value="" disabled>Select Brand</option>
+                          {brands.map(brand => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Category *</label>
+                        <select required value={formData.category_id} onChange={e => setFormData({...formData, category_id: e.target.value})} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-500 outline-none shadow-inner font-bold text-sm">
+                          <option value="" disabled>Select Category</option>
+                          {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                        </select>
+                        <div className="mt-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-1.5 shadow-sm">
+                          <div className="flex gap-1.5">
+                            <input
+                              type="text"
+                              placeholder="Quick Add..."
+                              value={quickCategoryName}
+                              onChange={(event) => {
+                                setQuickCategoryName(event.target.value)
+                                if (quickCategoryError) setQuickCategoryError("")
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") handleProductQuickCategoryAdd(event)
+                              }}
+                              className="min-w-0 flex-1 px-2 py-1.5 text-[10px] bg-transparent outline-none font-bold text-slate-700 dark:text-slate-100 placeholder:text-slate-400"
+                            />
+                            <button type="button" onClick={handleProductQuickCategoryAdd} disabled={isQuickAddingCategory || !quickCategoryName.trim()} className="w-8 h-8 flex items-center justify-center bg-sky-500 text-white rounded-lg shadow-lg shadow-sky-200 dark:shadow-none disabled:opacity-50 active:scale-95">
+                              {isQuickAddingCategory ? <FiActivity className="animate-spin" size={14} /> : <FiPlus size={16}/>}
+                            </button>
+                          </div>
+                          {quickCategoryError && (
+                            <p className="px-2 pb-1 text-[9px] font-bold text-rose-500">{quickCategoryError}</p>
+                          )}
                         </div>
-                        {quickCategoryError && (
-                          <p className="px-3 pb-1 text-[9px] font-bold text-rose-500">{quickCategoryError}</p>
-                        )}
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Unit of Measure *</label>
-                      <select required value={formData.uom_id} onChange={e => setFormData({...formData, uom_id: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-transparent outline-none focus:border-sky-500 shadow-inner font-bold">
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Unit *</label>
+                      <select required value={formData.uom_id} onChange={e => setFormData({...formData, uom_id: e.target.value})} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-500 outline-none shadow-inner font-bold text-sm">
                         <option value="" disabled>Select Unit</option>
                         {units.map(unit => <option key={unit.id} value={unit.id}>{unit.name} ({unit.abbreviation})</option>)}
                       </select>
                     </div>
                   </div>
-                </div>
+                </section>
 
-                {/* Right Column: Images */}
-                <div className="space-y-6">
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center justify-between mb-4 px-1">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        Initial Stock
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">In DB</label>
-                        <div className="w-full px-4 py-3.5 bg-white dark:bg-slate-950 rounded-2xl border border-transparent shadow-inner font-bold text-slate-800 dark:text-white">
-                          {formExistingStock}
+                {/* 2. Pricing */}
+                <section className="rounded-[1.25rem] border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/10 p-3">
+                  <h4 className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-widest mb-3">Pricing & Margins</h4>
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 p-2.5">
+                        <label className="block text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1 px-1">Buy Cost / {formUnitLabel} *</label>
+                        <div className="relative">
+                          <FiDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500" size={14}/>
+                          <input required type="number" min="0" step="0.01" value={formData.buy_cost} onChange={event => updateBuyCost(event.target.value)} className="w-full pl-8 pr-2 py-2 bg-white dark:bg-slate-900 rounded-xl border border-emerald-100 dark:border-emerald-900/40 focus:border-emerald-500 outline-none shadow-inner font-black text-sm text-emerald-700 dark:text-emerald-300" />
                         </div>
                       </div>
-                      <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
-                          Quantity
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          placeholder="Quantity"
-                          value={formData.initial_quantity}
-                          onChange={e => setFormData({ ...formData, initial_quantity: e.target.value })}
-                          className="w-full px-4 py-3.5 bg-white dark:bg-slate-950 rounded-2xl border border-transparent focus:border-sky-500 outline-none transition-all shadow-inner font-bold"
-                        />
+                      <div className="rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/40 p-2.5">
+                        <label className="block text-[9px] font-black text-sky-600 dark:text-sky-400 uppercase tracking-widest mb-1 px-1">Sell Price / {formUnitLabel} *</label>
+                        <div className="relative">
+                          <FiDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-sky-500" size={14}/>
+                          <input required type="number" min="0" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full pl-8 pr-2 py-2 bg-white dark:bg-slate-900 rounded-xl border border-sky-100 dark:border-sky-900/40 focus:border-sky-500 outline-none shadow-inner font-black text-sm text-sky-700 dark:text-sky-300" />
+                        </div>
                       </div>
-                      <div className="col-span-2">
-                        <select
-                          value={formData.warehouse_id}
-                          onChange={e => setFormData({ ...formData, warehouse_id: e.target.value })}
-                          className="w-full px-4 py-3.5 bg-white dark:bg-slate-950 rounded-2xl border border-transparent focus:border-sky-500 outline-none transition-all shadow-inner font-bold"
-                        >
-                          <option value="">Select Warehouse</option>
-                          {warehouses.map(warehouse => (
-                            <option key={warehouse.id} value={warehouse.id}>{warehouse.name} ({warehouse.location})</option>
-                          ))}
-                        </select>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[1.2, 1.3, 1.5].map(markup => (
+                        <button key={markup} type="button" onClick={() => applyMarkup(markup)} className="py-2 rounded-xl bg-white dark:bg-slate-900 text-emerald-600 text-[9px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-900/40 hover:bg-emerald-500 hover:text-white transition-all">
+                          +{Math.round((markup - 1) * 100)}%
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Markup %</label>
+                        <input type="number" min="0" step="0.01" placeholder="35" value={formData.markup_percent} onChange={event => applyMarkupPercent(event.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-500 outline-none shadow-inner font-bold text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Profit $</label>
+                        <div className="relative">
+                          <FiDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500" size={13}/>
+                          <input type="number" min="0" step="0.01" placeholder="5.00" value={formData.profit_amount} onChange={event => applyProfitAmount(event.target.value)} className="w-full pl-8 pr-2 py-2 bg-white dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-500 outline-none shadow-inner font-bold text-sm" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-emerald-100 dark:border-emerald-900/20">
+                      <div>
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Discount %</label>
+                        <input type="number" step="0.01" min="0" max="100" placeholder="0" value={formData.discount_percent} onChange={e => setFormData({...formData, discount_percent: e.target.value})} className="w-full px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-500 outline-none shadow-inner font-bold text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Disc. Expire</label>
+                        <input type="date" value={formData.discount_expires_at} onChange={e => setFormData({...formData, discount_expires_at: e.target.value})} className="w-full px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-500 outline-none shadow-inner font-bold text-sm" />
+                      </div>
+                    </div>
+
+                    <div className={`rounded-xl border px-3 py-2 ${formProfitIsNegative ? "bg-rose-50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/40" : "bg-violet-50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/40"}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className={`text-[7px] font-black uppercase tracking-[0.18em] ${formProfitIsNegative ? "text-rose-600" : "text-violet-600"}`}>Profit / {formUnitLabel}</p>
+                          <p className={`text-base font-black ${formProfitIsNegative ? "text-rose-700 dark:text-rose-300" : "text-violet-700 dark:text-violet-300"}`}>${formProfitPerUnit.toFixed(2)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-[7px] font-black uppercase tracking-[0.18em] ${formProfitIsNegative ? "text-rose-600" : "text-violet-600"}`}>Batch Gain</p>
+                          <p className={`text-xl font-black ${formProfitIsNegative ? "text-rose-700 dark:text-rose-300" : "text-violet-700 dark:text-violet-300"}`}>${formProfitTotal.toFixed(2)}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
+                </section>
 
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 px-1">
-                      <FiUploadCloud className="text-sky-400" /> Product Images
+                {/* 3. Stock & Photos */}
+                <section className="rounded-[1.25rem] border border-sky-100 dark:border-sky-900/40 bg-sky-50/40 dark:bg-sky-950/10 p-3">
+                  <h4 className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-widest mb-3">Stock & Photos</h4>
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">{currentProduct ? "Current Stock (Read Only)" : "Initial Qty"}</label>
+                        <input 
+                          type="number" 
+                          readOnly={!!currentProduct}
+                          value={formData.initial_quantity} 
+                          onChange={!currentProduct ? e => setFormData({ ...formData, initial_quantity: e.target.value }) : undefined} 
+                          className={`w-full px-3 py-2 rounded-xl border border-transparent outline-none shadow-inner font-bold text-sm ${currentProduct ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed" : "bg-white dark:bg-slate-900 focus:border-sky-500"}`} 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Expire</label>
+                        <input type="date" value={formData.expire} onChange={e => setFormData({...formData, expire: e.target.value})} className="w-full px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-500 outline-none shadow-inner font-bold text-sm" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Warehouse</label>
+                      <select value={formData.warehouse_id} onChange={e => setFormData({ ...formData, warehouse_id: e.target.value })} className="w-full px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-transparent focus:border-sky-500 outline-none shadow-inner font-bold text-sm">
+                        <option value="">Select Warehouse</option>
+                        {warehouses.map(warehouse => <option key={warehouse.id} value={warehouse.id}>{warehouse.name} ({warehouse.location})</option>)}
+                      </select>
+                    </div>
+                    <label className={`h-16 rounded-2xl border-2 border-dashed flex items-center justify-center gap-2 cursor-pointer transition-all shadow-inner ${isUploading ? "border-sky-400 bg-sky-50 dark:bg-sky-950/20" : "border-slate-200 dark:border-slate-800 hover:border-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/20"}`}>
+                      {isUploading ? <FiActivity className="animate-spin text-sky-500" size={18}/> : <FiUploadCloud className="text-slate-300 dark:text-slate-600" size={20}/>}
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{isUploading ? "Uploading..." : "Upload Photos"}</span>
+                      <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
                     </label>
-                    <div className="space-y-4">
-                      <label className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-3xl cursor-pointer transition-all relative overflow-hidden group shadow-inner
-                        ${isUploading ? 'border-sky-400 bg-sky-50 dark:bg-sky-950/20' : 'border-slate-200 dark:border-slate-800 hover:border-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/20'}`}>
-                         {isUploading ? (
-                           <div className="text-center space-y-2">
-                             <FiActivity className="animate-spin text-sky-500 mx-auto" size={32} />
-                             <p className="text-[10px] font-black uppercase text-sky-500 tracking-widest">Uploading...</p>
-                           </div>
-                         ) : (
-                           <div className="text-center space-y-1">
-                             <FiUploadCloud className="text-slate-300 dark:text-slate-600 group-hover:text-sky-500 transition-colors mx-auto" size={40} />
-                             <p className="text-[10px] font-black uppercase text-slate-400 group-hover:text-slate-600 transition-colors tracking-widest">Upload Photo</p>
-                           </div>
-                         )}
-                         <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-                      </label>
-
-                      {formData.images?.length > 0 && (
-                        <div className="grid grid-cols-3 gap-3 max-h-48 overflow-y-auto p-1 custom-scrollbar">
+                    <div className="min-h-14 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-2">
+                      {formData.images.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-[9px] font-black text-slate-300 uppercase tracking-widest text-center">No photos</div>
+                      ) : (
+                        <div className="grid grid-cols-5 gap-1.5 max-h-32 overflow-y-auto custom-scrollbar p-1">
                           {formData.images.map((url, index) => (
-                            <div key={index} className="group relative aspect-square rounded-2xl overflow-hidden border border-black/5 dark:border-white/5 shadow-md">
-                              <img src={url} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt="" />
-                              <button 
-                                type="button" 
-                                onClick={() => removeImage(index)} 
-                                className="absolute top-1 right-1 w-6 h-6 bg-rose-500 text-white rounded-lg shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100"
-                              >
-                                <FiX size={12} />
+                            <div key={url + index} className="relative aspect-square rounded-xl overflow-hidden border border-black/5 dark:border-white/10 group">
+                              <img src={url} alt="" className="w-full h-full object-cover" />
+                              <button type="button" onClick={() => removeProductImage(index)} className="absolute top-0.5 right-0.5 w-5 h-5 rounded-lg bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg">
+                                <FiX size={11}/>
                               </button>
                             </div>
                           ))}
@@ -820,12 +914,15 @@ export default function Products() {
                       )}
                     </div>
                   </div>
-                </div>
+                </section>
               </div>
-              <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-800 mt-4">
+
+              <div className="flex justify-end gap-3 pt-3 mt-3 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex justify-end gap-3">
-                  <button type="button" onClick={() => setIsFormModalOpen(false)} className="px-8 py-3.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-[0.2em] transition-all">Cancel</button>
-                  <button type="submit" className="px-10 py-3.5 text-xs font-black rounded-2xl text-white bg-sky-500 hover:bg-sky-600 shadow-xl shadow-sky-200 dark:shadow-none uppercase tracking-[0.2em] transition-all active:scale-95">Save Product</button>
+                  <button type="button" onClick={() => setIsFormModalOpen(false)} className="px-6 py-2.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-[0.2em] transition-all">Cancel</button>
+                  <button type="submit" disabled={loading} className="px-8 py-2.5 text-xs font-black rounded-2xl text-white bg-sky-500 hover:bg-sky-600 shadow-xl shadow-sky-200 dark:shadow-none uppercase tracking-[0.2em] transition-all active:scale-95 disabled:opacity-60">
+                    {currentProduct ? "Save Changes" : "Save Product"}
+                  </button>
                 </div>
               </div>
             </form>
@@ -854,7 +951,13 @@ export default function Products() {
                     {categories.map(cat => (
                        <div key={cat.id} className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-sky-500/50 transition-all">
                           <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{cat.name}</span>
-                          <FiTag className="text-slate-300 group-hover:text-sky-500 transition-colors" size={16} />
+                          <button 
+                             onClick={() => handleDeleteCategory(cat.id)}
+                             title="Remove Category"
+                             className="p-2 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all opacity-0 group-hover:opacity-100"
+                          >
+                             <FiTrash2 size={16} />
+                          </button>
                        </div>
                     ))}
                  </div>

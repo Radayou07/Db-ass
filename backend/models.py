@@ -29,7 +29,7 @@ class Employee(db.Model):
             primary_image = self.images[0].url
             
         if primary_image:
-            primary_image = primary_image.replace(":5000/", ":5001/")
+            pass # Removed legacy local port hack
 
         return {
             "id":    self.id,
@@ -54,7 +54,7 @@ class EmployeeImage(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
-            "url": self.url.replace(":5000/", ":5001/"),
+            "url": self.url,
             "is_primary": self.is_primary,
             "uploaded_at": self.uploaded_at.isoformat()
         }
@@ -136,11 +136,17 @@ class Product(db.Model):
                 has_discount = True
                 sale_price = float(self.price) * (1 - float(self.discount_percent) / 100)
 
+        # Derived Buying Cost (from supplier links)
+        last_cost = 0
+        if self.supplier_links:
+            last_cost = float(self.supplier_links[0].unit_price)
+
         return {
             "id": self.id,
             "name": self.name,
             "description": self.description,
             "price": float(self.price),
+            "last_cost": last_cost,
             "brand_id": self.brand_id,
             "brand_name": self.brand.name if self.brand else None,
             "company": self.brand.name if self.brand else None,
@@ -168,7 +174,7 @@ class ProductImage(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
-            "url": self.url.replace(":5000/", ":5001/"),
+            "url": self.url,
             "is_primary": self.is_primary,
             "uploaded_at": self.uploaded_at.isoformat()
         }
@@ -308,7 +314,7 @@ class Customer(db.Model):
             primary_image = self.images[0].url
 
         if primary_image:
-            primary_image = primary_image.replace(":5000/", ":5001/")
+            pass # Removed legacy local port hack
 
         return {
             "id": self.id,
@@ -334,7 +340,7 @@ class CustomerImage(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
-            "url": self.url.replace(":5000/", ":5001/"),
+            "url": self.url,
             "is_primary": self.is_primary,
             "uploaded_at": self.uploaded_at.isoformat()
         }
@@ -358,7 +364,7 @@ class Supplier(db.Model):
             primary_image = self.images[0].url
 
         if primary_image:
-            primary_image = primary_image.replace(":5000/", ":5001/")
+            pass # Removed legacy local port hack
 
         purchases = Purchase.query.filter_by(supplier_id=self.id).order_by(Purchase.date.desc(), Purchase.id.desc()).all()
         purchase_ids = [purchase.id for purchase in purchases]
@@ -448,7 +454,7 @@ class SupplierImage(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
-            "url": self.url.replace(":5000/", ":5001/"),
+            "url": self.url,
             "is_primary": self.is_primary,
             "uploaded_at": self.uploaded_at.isoformat()
         }

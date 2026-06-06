@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "../context/AuthContext"
+import { useToast } from "../context/ToastContext"
 import { 
   FiUserPlus, FiUsers, FiMail, FiPhone, FiShield, FiX, FiCheck, FiActivity, FiTrash2
 } from "react-icons/fi"
 
 export default function Staff() {
   const { authFetch, isAdmin } = useAuth()
+  const { toast } = useToast()
   const [staff, setStaff] = useState([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -36,12 +38,15 @@ export default function Staff() {
     if (!window.confirm("Remove this staff member from the system?")) return
     try {
       const res = await authFetch(`/auth/staff/${id}`, { method: "DELETE" })
-      if (res.ok) fetchStaff()
+      if (res.ok) {
+        toast("Staff record successfully purged from system")
+        fetchStaff()
+      }
       else {
         const data = await res.json()
-        alert(data.error || "Delete failed")
+        toast(data.error || "De-enrollment failed", "error")
       }
-    } catch (err) { alert("Network error") }
+    } catch (err) { toast("Network synchronization error", "error") }
   }
 
   const handleAddStaff = async (e) => {
@@ -52,16 +57,16 @@ export default function Staff() {
         body: JSON.stringify(form)
       })
       if (res.ok) {
-        alert("Staff member enrolled successfully!")
+        toast("Staff member enrolled successfully!")
         setIsModalOpen(false)
         setForm({ name: "", number: "", email: "", password: "", role: "staff" })
         fetchStaff()
       } else {
         const data = await res.json()
-        alert(data.error || "Failed to add staff")
+        toast(data.error || "Enrollment failed", "error")
       }
     } catch (err) {
-      alert("Network error")
+      toast("Access gateway timeout", "error")
     }
   }
 

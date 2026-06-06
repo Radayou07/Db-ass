@@ -1,5 +1,7 @@
 import os
 import uuid
+import base64
+import requests
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from flask_jwt_extended import jwt_required, get_jwt
@@ -160,16 +162,36 @@ def update_supplier_image(id):
         return jsonify({"error": "No selected file"}), 400
 
     if file and allowed_file(file.filename):
-        ext = file.filename.rsplit('.', 1)[1].lower()
-        filename = secure_filename(f"supplier_{id}_{uuid.uuid4().hex}.{ext}")
+        api_key = os.getenv("IMGBB_API_KEY")
+        if not api_key:
+            return jsonify({"error": "ImgBB API key not configured on server"}), 500
 
-        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads')
-        os.makedirs(upload_folder, exist_ok=True)
-
-        file_path = os.path.join(upload_folder, filename)
-        file.save(file_path)
-
-        url = f"http://localhost:5001/static/uploads/{filename}"
+        try:
+            # Read file and encode to base64
+            file_content = file.read()
+            base64_image = base64.b64encode(file_content).decode('utf-8')
+            
+            # Upload to ImgBB
+            response = requests.post(
+                "https://api.imgbb.com/1/upload",
+                data={
+                    "key": api_key,
+                    "image": base64_image,
+                },
+                timeout=30
+            )
+            
+            res_data = response.json()
+            
+            if response.status_code == 200 and res_data.get("success"):
+                url = res_data["data"]["url"]
+            else:
+                error_msg = res_data.get("error", {}).get("message", "Unknown ImgBB error")
+                return jsonify({"error": f"ImgBB Error: {error_msg}"}), response.status_code
+                
+        except Exception as e:
+            print(f"ImgBB upload error: {str(e)}")
+            return jsonify({"error": "Failed to upload image to cloud storage"}), 500
 
         # Set all other images to not primary
         SupplierImage.query.filter_by(supplier_id=id).update({"is_primary": False})

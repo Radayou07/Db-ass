@@ -119,23 +119,6 @@ export default function SideBar({ isDark, setIsDark }) {
           )
         })}
 
-        {/* Link to Customer Side of the same app */}
-        <Link
-          to="/customer"
-          title={!isOpen ? "View Storefront" : undefined}
-          className="relative flex items-center gap-3 px-3 py-2.5 rounded-xl
-                     text-sm font-medium whitespace-nowrap text-side-text
-                     hover:bg-slate-100 dark:hover:bg-white/[.06] hover:text-slate-900 dark:hover:text-white
-                     transition-colors duration-150 group mt-4 border-t border-slate-200 dark:border-white/5 pt-4"
-        >
-          <FiExternalLink className="shrink-0 w-5 h-5 text-slate-400 group-hover:text-side-icon" />
-          <span className={`
-            overflow-hidden transition-[max-width,opacity] duration-300 ease-in-out
-            ${isOpen ? "max-w-xs opacity-100" : "max-w-0 opacity-0"}
-          `}>
-            View Storefront
-          </span>
-        </Link>
       </nav>
 
       {/* ── User info + logout ── */}

@@ -23,29 +23,38 @@ export function ToastProvider({ children }) {
       {children}
       
       {/* Toast Container */}
-      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none">
+      <div className="fixed bottom-8 right-8 z-[9999] flex flex-col gap-4 pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}
             className={`
-              pointer-events-auto flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border
-              animate-in slide-in-from-right fade-in duration-300 min-w-[300px]
+              pointer-events-auto flex items-center gap-4 px-6 py-4 rounded-[1.25rem] shadow-2xl border
+              animate-in slide-in-from-bottom-5 fade-in zoom-in-95 duration-500 min-w-[320px] max-w-md
+              backdrop-blur-xl transition-all
               ${t.type === "success" 
-                ? "bg-white dark:bg-slate-900 border-emerald-100 dark:border-emerald-900/30 text-slate-800 dark:text-white" 
-                : "bg-white dark:bg-slate-900 border-rose-100 dark:border-rose-900/30 text-slate-800 dark:text-white"}
+                ? "bg-white/90 dark:bg-slate-900/90 border-emerald-500/20 text-slate-800 dark:text-white ring-1 ring-emerald-500/10" 
+                : "bg-white/90 dark:bg-slate-900/90 border-rose-500/20 text-slate-800 dark:text-white ring-1 ring-rose-500/10"}
             `}
           >
-            <span className={t.type === "success" ? "text-emerald-500" : "text-rose-500"}>
-              {t.type === "success" ? <FiCheckCircle size={20} /> : <FiAlertCircle size={20} />}
-            </span>
+            <div className={`
+              w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg
+              ${t.type === "success" ? "bg-emerald-500 text-white shadow-emerald-500/20" : "bg-rose-500 text-white shadow-rose-500/20"}
+            `}>
+              {t.type === "success" ? <FiCheckCircle size={22} /> : <FiAlertCircle size={22} />}
+            </div>
             
-            <p className="flex-1 text-sm font-bold">{t.message}</p>
+            <div className="flex-1 min-w-0">
+               <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-0.5">
+                  {t.type === "success" ? "System Success" : "Action Required"}
+               </p>
+               <p className="text-sm font-bold truncate leading-tight">{t.message}</p>
+            </div>
             
             <button 
               onClick={() => removeToast(t.id)}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all active:scale-90"
             >
-              <FiX size={16} />
+              <FiX size={18} />
             </button>
           </div>
         ))}
