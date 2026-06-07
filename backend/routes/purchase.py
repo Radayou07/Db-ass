@@ -15,7 +15,8 @@ def get_purchases():
         Supplier.name.label("supplier_name"),
         Employee.name.label("employee_name")
     ).outerjoin(Supplier, Purchase.supplier_id == Supplier.id)\
-     .outerjoin(Employee, Purchase.employee_id == Employee.id).all()
+     .outerjoin(Employee, Purchase.employee_id == Employee.id)\
+     .order_by(Purchase.id.desc()).all()
 
     purchase_list = []
     for p, s_name, e_name in results:
@@ -23,10 +24,20 @@ def get_purchases():
         data["supplier_name"] = s_name or "Unknown Supplier"
         data["employee_name"] = e_name or "Unknown Employee"
         
-        # Add summary counts
-        details = PurchaseDetail.query.filter_by(purchase_id=p.id).all()
-        data["total_items"] = sum(d.quantity for d in details)
-        data["total_amount"] = sum(float(d.price) * d.quantity for d in details)
+        # Get supplier phone numbers
+        supplier = Supplier.query.get(p.supplier_id)
+        data["supplier_phones"] = [n.number for n in supplier.numbers] if supplier else []
+        
+        details = db.session.query(
+            PurchaseDetail,
+            Product.name.label("product_name")
+        ).outerjoin(Product, PurchaseDetail.product_id == Product.id)\
+         .filter(PurchaseDetail.purchase_id == p.id).all()
+        
+        data["product_ids"] = [d.product_id for d, name in details]
+        data["product_names"] = [name or f"Product #{d.product_id}" for d, name in details]
+        data["total_items"] = sum(d.quantity for d, name in details)
+        data["total_amount"] = sum(float(d.price) * d.quantity for d, name in details)
         
         purchase_list.append(data)
 
@@ -59,6 +70,14 @@ def get_purchase_details(id):
         item_data = d.to_dict()
         item_data["product_name"] = p_name or f"Product #{d.product_id}"
         item_data["line_total"] = float(d.price) * d.quantity
+        
+        # Get product image
+        product = Product.query.get(d.product_id)
+        image = next((img.url for img in product.images if img.is_primary), None)
+        if not image and product.images:
+            image = product.images[0].url
+        item_data["image_url"] = image
+        
         items.append(item_data)
 
     result = purchase.to_dict()
@@ -75,7 +94,7 @@ def get_purchase_details(id):
 def create_purchase():
     data = request.get_json(silent=True) or {}
     supplier_id = data.get("supplier_id")
-    items = data.get("items", []) # List of {product_id, quantity, price}
+    items = data.get("items", []) 
 
     if not supplier_id or not items:
         return jsonify({"error": "Supplier and items are required."}), 400
@@ -90,7 +109,7 @@ def create_purchase():
             status="pending"
         )
         db.session.add(new_purchase)
-        db.session.flush() # Get purchase.id
+        db.session.flush()
 
         for item in items:
             product_id = int(item["product_id"])
@@ -101,7 +120,7 @@ def create_purchase():
             ).first()
             if not supplier_product:
                 db.session.rollback()
-                return jsonify({"error": "This supplier does not sell that product to us."}), 400
+                return jsonify({"error": f"Supplier does not sell product #{product_id}"}), 400
 
             detail = PurchaseDetail(
                 purchase_id=new_purchase.id,
@@ -117,12 +136,18 @@ def create_purchase():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-@purchase_bp.route("/<int:id>/status", methods=["PUT"])
-@jwt_required()
+@purchase_bp.route("/<int:id>/status", methods=["PUT", "OPTIONS"])
 def update_purchase_status(id):
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+    
+    return update_purchase_status_authenticated(id)
+
+@jwt_required()
+def update_purchase_status_authenticated(id):
     data = request.get_json(silent=True) or {}
     new_status = data.get("status")
-    warehouse_id = data.get("warehouse_id") # Required for 'received'
+    warehouse_id = data.get("warehouse_id")
 
     purchase = Purchase.query.get(id)
     if not purchase:
@@ -131,7 +156,7 @@ def update_purchase_status(id):
     if purchase.status != "pending":
         return jsonify({"error": f"Cannot update status from {purchase.status}"}), 400
 
-    if new_status not in ["received", "cancelled", "declined"]:
+    if new_status not in ["received", "cancelled"]:
         return jsonify({"error": "Invalid status choice."}), 400
 
     try:
@@ -143,41 +168,31 @@ def update_purchase_status(id):
             if not warehouse:
                 return jsonify({"error": "Target warehouse not found."}), 404
 
-            # 1. Calculate incoming volume
             details = PurchaseDetail.query.filter_by(purchase_id=id).all()
             incoming_qty = sum(item.quantity for item in details)
 
-            # 2. Check current warehouse utilization
             current_usage = db.session.query(func.sum(Inventory.inventory_quantity)).filter_by(warehouse_id=warehouse_id).scalar() or 0
             
             if current_usage + incoming_qty > warehouse.capacity:
-                return jsonify({
-                    "error": f"Warehouse capacity exceeded. Available space: {warehouse.capacity - current_usage}, Incoming: {incoming_qty}"
-                }), 400
+                return jsonify({"error": f"Warehouse full. Needs {incoming_qty} units space."}), 400
 
-            # 3. Update stock levels for each item in the purchase
             for item in details:
-                inv_record = Inventory.query.filter_by(
-                    product_id=item.product_id, 
-                    warehouse_id=warehouse_id
-                ).first()
-
+                inv_record = Inventory.query.filter_by(product_id=item.product_id, warehouse_id=warehouse_id).first()
                 if inv_record:
                     inv_record.inventory_quantity += item.quantity
                 else:
-                    new_inv = Inventory(
-                        product_id=item.product_id,
-                        warehouse_id=warehouse_id,
-                        inventory_quantity=item.quantity
-                    )
-                    db.session.add(new_inv)
-            
-            # Record who received the goods
+                    db.session.add(Inventory(product_id=item.product_id, warehouse_id=warehouse_id, inventory_quantity=item.quantity))
+                
+                # Update Supplier price link ONLY on receipt
+                link = SupplierProduct.query.filter_by(supplier_id=purchase.supplier_id, product_id=item.product_id).first()
+                if link:
+                    link.unit_price = item.price
+
             purchase.employee_id = int(get_jwt_identity())
 
         purchase.status = new_status
         db.session.commit()
-        return jsonify({"message": f"Purchase order {new_status} successfully."}), 200
+        return jsonify({"message": f"Order {new_status}."}), 200
 
     except Exception as e:
         db.session.rollback()
@@ -191,11 +206,7 @@ def delete_purchase(id):
         return jsonify({"error": "Purchase not found"}), 404
 
     if purchase.status == "received":
-        return jsonify({"error": "Cannot delete a received purchase. Cancel it first (if logic allowed) or archive."}), 400
-
-    from models import PaymentSupplier
-    if PaymentSupplier.query.filter_by(purchase_id=id).first():
-        return jsonify({"error": "Cannot delete purchase with payment records."}), 400
+        return jsonify({"error": "Cannot delete a received purchase."}), 400
 
     try:
         PurchaseDetail.query.filter_by(purchase_id=id).delete()

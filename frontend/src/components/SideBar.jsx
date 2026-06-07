@@ -5,7 +5,7 @@ import { MdShoppingCart, MdAnalytics, MdInventory2 } from "react-icons/md"
 import { GiShoppingBag } from "react-icons/gi"
 import { FaHandsHelping } from "react-icons/fa"
 import { RiMenuFoldLine, RiMenuUnfoldLine } from "react-icons/ri"
-import { FiLogOut, FiShield, FiUser, FiTag, FiExternalLink } from "react-icons/fi"
+import { FiLogOut, FiShield, FiUser, FiTag, FiExternalLink, FiCheck, FiLayout } from "react-icons/fi"
 import { BsBoxSeam } from "react-icons/bs"
 import DarkMode from "./DarkMode"
 import { useAuth } from "../context/AuthContext"
@@ -17,8 +17,10 @@ const ADMIN_NAV = [
   { to: "/staff/orders",     Icon: GiShoppingBag,  label: "Orders" },
   { to: "/staff/customers",  Icon: IoMdPeople,     label: "Customers" },
   { to: "/staff/suppliers",  Icon: FaHandsHelping, label: "Suppliers" },
+  { to: "/staff/approvals",  Icon: FiCheck,        label: "Approvals" },
   { to: "/staff/brands",     Icon: FiTag,          label: "Brands" },
   { to: "/staff/discounts",  Icon: FiTag,          label: "Discounts" },
+  { to: "/staff/storefront", Icon: FiLayout,       label: "Storefront" },
   { to: "/staff/analysis",  Icon: MdAnalytics,    label: "Analysis" },
 ]
 
@@ -53,7 +55,7 @@ export default function SideBar({ isDark, setIsDark }) {
         border-r border-slate-200 dark:border-white/5
         overflow-hidden
         transition-[width] duration-300 ease-in-out
-        ${isOpen ? "w-60" : "w-[68px]"}
+        ${isOpen ? "w-48" : "w-[64px]"}
       `}
     >
       {/* ── Brand + toggle ── */}

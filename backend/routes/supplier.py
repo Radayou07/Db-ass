@@ -144,7 +144,8 @@ def get_supplier_products(id):
     if not supplier:
         return jsonify({"error": "Supplier not found"}), 404
 
-    links = SupplierProduct.query.filter_by(supplier_id=id, is_active=True).all()
+    # Newest products first
+    links = SupplierProduct.query.filter_by(supplier_id=id, is_active=True).order_by(SupplierProduct.id.desc()).all()
     return jsonify([link.to_dict() for link in links]), 200
 
 @supplier_bp.route("/<int:id>/image", methods=["POST"])
@@ -210,7 +211,8 @@ def get_supplier_purchases(id):
     if not supplier:
         return jsonify({"error": "Supplier not found"}), 404
     
-    purchases = Purchase.query.filter_by(supplier_id=id).all()
+    # Newest purchases first
+    purchases = Purchase.query.filter_by(supplier_id=id).order_by(Purchase.id.desc()).all()
     results = []
     for purchase in purchases:
         purchase_data = purchase.to_dict()

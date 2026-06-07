@@ -180,6 +180,48 @@ class ProductImage(db.Model):
         }
 
 
+class StorefrontBanner(db.Model):
+    __tablename__ = "storefront_banner"
+
+    id            = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    image_url     = db.Column(db.String(255), nullable=False)
+    title_text    = db.Column(db.String(100), nullable=True)
+    subtitle_text = db.Column(db.String(100), nullable=True)
+    link_url      = db.Column(db.String(255), nullable=True)
+    display_order = db.Column(db.Integer, default=0)
+    is_active     = db.Column(db.Boolean, default=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "image_url": self.image_url,
+            "title_text": self.title_text,
+            "subtitle_text": self.subtitle_text,
+            "link_url": self.link_url,
+            "display_order": self.display_order,
+            "is_active": self.is_active
+        }
+
+
+class StorefrontConfig(db.Model):
+    __tablename__ = "storefront_config"
+
+    id                  = db.Column(db.Integer, primary_key=True)
+    side_promo_title    = db.Column(db.String(100), default="Huge Sale")
+    side_promo_subtitle = db.Column(db.String(100), default="70% OFF")
+    side_promo_link     = db.Column(db.String(255), default="/customer/products")
+    side_promo_image_url = db.Column(db.String(255), nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "side_promo_title": self.side_promo_title,
+            "side_promo_subtitle": self.side_promo_subtitle,
+            "side_promo_link": self.side_promo_link,
+            "side_promo_image_url": self.side_promo_image_url
+        }
+
+
 class Discount(db.Model):
     __tablename__ = "discount"
 
@@ -369,6 +411,8 @@ class Supplier(db.Model):
         purchases = Purchase.query.filter_by(supplier_id=self.id).order_by(Purchase.date.desc(), Purchase.id.desc()).all()
         purchase_ids = [purchase.id for purchase in purchases]
         total_purchase_amount = 0
+        total_pending_price = 0
+        total_bought_price = 0
         outstanding_amount = 0
 
         if purchase_ids:
@@ -378,6 +422,15 @@ class Supplier(db.Model):
                 line_total = float(detail.price) * detail.quantity
                 total_purchase_amount += line_total
                 detail_totals[detail.purchase_id] = detail_totals.get(detail.purchase_id, 0) + line_total
+            
+            # Calculate Total Pending and Total Bought
+            for p in purchases:
+                amt = detail_totals.get(p.id, 0)
+                if p.status == "pending":
+                    total_pending_price += amt
+                elif p.status == "received":
+                    total_bought_price += amt
+
             paid_rows = PaymentSupplier.query.filter(
                 PaymentSupplier.purchase_id.in_(purchase_ids),
                 PaymentSupplier.status == 1
@@ -422,6 +475,8 @@ class Supplier(db.Model):
             "purchase_count": len(purchases),
             "pending_purchase_count": sum(1 for purchase in purchases if purchase.status == "pending"),
             "total_purchase_amount": round(total_purchase_amount, 2),
+            "total_pending_price": round(total_pending_price, 2),
+            "total_bought_price": round(total_bought_price, 2),
             "outstanding_amount": round(outstanding_amount, 2),
             "source_products": source_products,
             "recent_purchases": recent_purchases

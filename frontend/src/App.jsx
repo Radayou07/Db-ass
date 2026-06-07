@@ -23,6 +23,8 @@ import Staff     from './pages/Staff'
 import Analysis  from './pages/Analysis'
 import Discounts from './pages/Discounts'
 import Profile   from './pages/Profile'
+import Approvals from './pages/Approvals'
+import ManageStore from './pages/ManageStore'
 
 // Customer pages
 import CustomerHome from './pages/CustomerHome'
@@ -102,10 +104,12 @@ function AppContent() {
             <Route path="orders"     element={<Orders />} />
             <Route path="customers"  element={<Customers />} />
             <Route path="suppliers"  element={<Suppliers />} />
+            <Route path="approvals"  element={<Approvals />} />
             <Route path="brands"     element={<Brands />} />
             <Route path="staff"      element={<ProtectedRoute allowedRoles={['admin']}><Staff /></ProtectedRoute>} />
             <Route path="analysis"   element={<Analysis />} />
             <Route path="discounts"  element={<Discounts />} />
+            <Route path="storefront" element={<ManageStore />} />
             <Route path="profile"    element={<Profile />} />
           </Route>
 

@@ -83,7 +83,7 @@ function ProductCard({ product, onEdit, onDelete, onBuy, isInternal }) {
         <div className="mt-3 pt-2 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between w-full">
             <span className={`text-[9px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded-md ${product.stock > 0 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' : 'bg-rose-50 text-rose-600 dark:bg-rose-900/20'}`}>
-              {product.stock ?? 0} {product.uom_abbreviation}
+              {product.stock ?? 0} {product.uom_abbreviation} {product.warehouse_name ? `(${product.warehouse_name})` : ""}
             </span>
             <span className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">{product.company}</span>
           </div>
@@ -905,7 +905,7 @@ export default function Products() {
                           {formData.images.map((url, index) => (
                             <div key={url + index} className="relative aspect-square rounded-xl overflow-hidden border border-black/5 dark:border-white/10 group">
                               <img src={url} alt="" className="w-full h-full object-cover" />
-                              <button type="button" onClick={() => removeProductImage(index)} className="absolute top-0.5 right-0.5 w-5 h-5 rounded-lg bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg">
+                              <button type="button" onClick={() => removeImage(index)} className="absolute top-0.5 right-0.5 w-5 h-5 rounded-lg bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg">
                                 <FiX size={11}/>
                               </button>
                             </div>

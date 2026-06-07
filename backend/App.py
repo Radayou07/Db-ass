@@ -16,6 +16,7 @@ from routes.discount import discount_bp
 from routes.wishlist import wishlist_bp
 from routes.cart import cart_bp
 from routes.brand import brand_bp
+from routes.storefront import storefront_bp
 
 def create_app():
     app = Flask(__name__)
@@ -51,6 +52,7 @@ def create_app():
     app.register_blueprint(wishlist_bp, url_prefix="/api/wishlist")
     app.register_blueprint(cart_bp, url_prefix="/api/cart")
     app.register_blueprint(brand_bp, url_prefix="/api/brands")
+    app.register_blueprint(storefront_bp, url_prefix="/api/storefront")
 
     @app.route("/")
     def index():

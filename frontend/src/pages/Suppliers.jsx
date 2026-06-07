@@ -368,7 +368,7 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
     }
   }
 
-  const removeProductImage = (index) => {
+  const removeImage = (index) => {
     setForm(prev => ({ ...prev, images: prev.images.filter((_, idx) => idx !== index) }))
   }
 
@@ -470,7 +470,6 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
   const quantity = Number(form.initial_quantity) || 0
   const buyCost = Number(form.buy_cost) || 0
   const sellPrice = Number(form.price) || 0
-  const existingAmount = Number(initialProduct?.stock) || 0
   const buyTotal = quantity * buyCost
   const sellTotal = quantity * sellPrice
   const profitPerUnit = sellPrice - buyCost
@@ -653,7 +652,7 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
                       {form.images.map((url, index) => (
                         <div key={url + index} className="relative aspect-square rounded-xl overflow-hidden border border-black/5 dark:border-white/10 group">
                           <img src={url} alt="" className="w-full h-full object-cover" />
-                          <button type="button" onClick={() => removeProductImage(index)} className="absolute top-0.5 right-0.5 w-5 h-5 rounded-lg bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg">
+                          <button type="button" onClick={() => removeImage(index)} className="absolute top-0.5 right-0.5 w-5 h-5 rounded-lg bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg">
                             <FiX size={11}/>
                           </button>
                         </div>
@@ -680,7 +679,7 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
 }
 
 /* ─── Supplier Details Modal ─── */
-function SupplierDetailsModal({ supplier, brands, categories, units, warehouses, onClose, onReceive, onDecline, onUpdate, refreshKey = 0 }) {
+function SupplierDetailsModal({ supplier, brands, categories, units, warehouses, onClose, onReceive, onCancel, onUpdate, refreshKey = 0 }) {
   const { authFetch } = useAuth()
   const { toast } = useToast()
   const [history, setHistory] = useState([])
@@ -866,6 +865,7 @@ function SupplierDetailsModal({ supplier, brands, categories, units, warehouses,
                 </div>
               ) : (
                 <div className="py-4 pb-10 min-h-full flex flex-col">
+                  
                   <div className="shrink-0 grid grid-cols-2 gap-2 p-1.5 mb-5 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                     <button
                       type="button"
@@ -961,34 +961,8 @@ function SupplierDetailsModal({ supplier, brands, categories, units, warehouses,
                     ) : (
                       <div className="space-y-4 p-5">
                         {history.map((purchase) => {
-                          const productIds = purchase.product_ids?.length ? purchase.product_ids.map(productId => `#${productId}`).join(", ") : "No product IDs"
-
                           return (
-                            <div key={purchase.id} className="rounded-[2rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-                              {purchase.status === "pending" && (
-                                <div className="flex border-b border-black/5 dark:border-white/5">
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation()
-                                      onReceive(purchase)
-                                    }}
-                                    className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2"
-                                  >
-                                    <FiCheck size={14}/> Approve
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation()
-                                      onDecline(purchase.id)
-                                    }}
-                                    className="flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-black uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2"
-                                  >
-                                    <FiX size={14}/> Decline
-                                  </button>
-                                </div>
-                              )}
+                            <div key={purchase.id} className="rounded-[2rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm transition-all hover:border-sky-300 dark:hover:border-sky-900">
                               <div
                                 role="button"
                                 tabIndex={0}
@@ -1017,9 +991,12 @@ function SupplierDetailsModal({ supplier, brands, categories, units, warehouses,
 
                                 <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-5 items-end">
                                   <div>
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Product IDs</p>
-                                    <p className="text-sm font-black text-slate-800 dark:text-white tracking-tight">{productIds}</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Purchase #{purchase.id.toString().padStart(6, '0')} · {purchase.total_items} units bought</p>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Tracking ID</p>
+                                    <div className="inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
+                                      <FiShoppingBag className="text-sky-500" size={16}/>
+                                      <p className="text-sm font-black text-slate-800 dark:text-white tracking-[0.1em]">PO-{purchase.id.toString().padStart(6, '0')}</p>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-3">{purchase.total_items} items in this shipment</p>
                                   </div>
                                   <div className="text-left md:text-right">
                                     <p className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em] mb-2">Total Price</p>
@@ -1069,42 +1046,60 @@ function SupplierDetailsModal({ supplier, brands, categories, units, warehouses,
                 </div>
               ) : purchaseDetails[detailTarget.id] ? (
                 <div className="space-y-5">
-                  <div className="overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <table className="w-full min-w-[620px] text-left">
-                      <thead className="bg-slate-50 dark:bg-slate-950">
-                        <tr className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                          <th className="py-4 px-4">Product ID</th>
-                          <th className="py-4 px-4">What We Bought</th>
-                          <th className="py-4 px-4 text-right">Each Price</th>
-                          <th className="py-4 px-4 text-right">Quantity</th>
-                          <th className="py-4 px-4 text-right">Product Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                        {purchaseDetails[detailTarget.id].items?.map(item => (
-                          <tr key={item.id}>
-                            <td className="py-4 px-4 text-xs font-black text-sky-500">#{item.product_id}</td>
-                            <td className="py-4 px-4">
-                              <p className="text-sm font-black text-slate-800 dark:text-white">{item.product_name}</p>
-                            </td>
-                            <td className="py-4 px-4 text-right text-xs font-black text-slate-600 dark:text-slate-300">${Number(item.price).toFixed(2)}</td>
-                            <td className="py-4 px-4 text-right text-xs font-black text-slate-600 dark:text-slate-300">{item.quantity}</td>
-                            <td className="py-4 px-4 text-right text-sm font-black text-slate-900 dark:text-white">${Number(item.line_total).toFixed(2)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-12 gap-4 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                       <div className="col-span-6">Product Item</div>
+                       <div className="col-span-2 text-center">Price</div>
+                       <div className="col-span-2 text-center">Qty</div>
+                       <div className="col-span-2 text-right">Subtotal</div>
+                    </div>
+                    <div className="space-y-2">
+                       {purchaseDetails[detailTarget.id].items?.map(item => (
+                         <div key={item.id} className="grid grid-cols-12 items-center gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm transition-all hover:border-sky-100">
+                            <div className="col-span-6 flex items-center gap-4">
+                               <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
+                                  {item.image_url ? (
+                                    <img 
+                                      src={item.image_url.startsWith('http') ? item.image_url : `http://localhost:5000${item.image_url}`} 
+                                      alt={item.product_name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <FiActivity size={20} className="text-slate-200"/>
+                                  )}
+                               </div>
+                               <div className="min-w-0">
+                                  <p className="text-sm font-black text-slate-800 dark:text-white truncate">{item.product_name}</p>
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">ID: #{item.product_id}</p>
+                               </div>
+                            </div>
+                            <div className="col-span-2 text-center text-xs font-bold text-slate-600 dark:text-slate-300">
+                               ${Number(item.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </div>
+                            <div className="col-span-2 text-center">
+                               <span className="px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-800 text-[10px] font-black text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700">
+                                  {item.quantity}
+                               </span>
+                            </div>
+                            <div className="col-span-2 text-right text-xs font-black text-slate-900 dark:text-white">
+                               ${(item.price * item.quantity).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </div>
+                         </div>
+                       ))}
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 px-5 py-4">
+                  <div className="flex items-center justify-between gap-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 px-6 py-5">
                     <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">Sum of all price</p>
                     <p className="text-2xl font-black text-slate-900 dark:text-white">${Number(purchaseDetails[detailTarget.id].total_amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                   </div>
 
                   {purchaseDetails[detailTarget.id].note && (
-                    <div className="rounded-2xl bg-slate-50 dark:bg-slate-950 px-5 py-4">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Note</p>
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-300">{purchaseDetails[detailTarget.id].note}</p>
+                    <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 px-6 py-5">
+                      <p className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                        <FiActivity size={12}/> Order Note
+                      </p>
+                      <p className="text-xs font-medium text-slate-600 dark:text-slate-300 italic">"{purchaseDetails[detailTarget.id].note}"</p>
                     </div>
                   )}
                 </div>
@@ -1445,12 +1440,11 @@ function SupplierProfilePanel({ supplier, onClose, onView, onEdit, onNewPO }) {
         <section className="p-5">
           <h4 className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest mb-4">Payment Summary</h4>
           <div className="space-y-3 text-xs">
-            <div className="flex justify-between"><span className="font-bold text-slate-400">Outstanding Balance</span><span className="font-black text-rose-500">${Number(supplier.outstanding_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
-            <div className="flex justify-between"><span className="font-bold text-slate-400">Total Bought</span><span className="font-black text-slate-800 dark:text-white">${Number(supplier.total_purchase_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+            <div className="flex justify-between"><span className="font-bold text-slate-400">Total Pending Price</span><span className="font-black text-amber-500">${Number(supplier.total_pending_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+            <div className="flex justify-between"><span className="font-bold text-slate-400">Total Bought</span><span className="font-black text-slate-800 dark:text-white">${Number(supplier.total_bought_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
             <div className="flex justify-between"><span className="font-bold text-slate-400">Purchase Orders</span><span className="font-black text-slate-800 dark:text-white">{supplier.purchase_count || 0}</span></div>
           </div>
-        </section>
-      </div>
+        </section>      </div>
 
       <div className="p-5 border-t border-slate-100 dark:border-slate-800 grid grid-cols-3 gap-2">
         <button onClick={onView} className="py-3 rounded-xl bg-sky-500 text-white text-[9px] font-black uppercase tracking-widest">View</button>
@@ -1604,15 +1598,15 @@ export default function Suppliers() {
     } catch (err) { toast("Inventory update failed", "error") }
   }
 
-  async function handleDecline(id) {
-    if (!window.confirm("Reject this purchase order? This action is permanent.")) return
+  async function handleCancel(id) {
+    if (!window.confirm("Cancel this purchase order? This action is permanent.")) return
     try {
       const res = await authFetch(`/purchases/${id}/status`, {
         method: "PUT",
-        body: JSON.stringify({ status: "declined" })
+        body: JSON.stringify({ status: "cancelled" })
       })
       if (res.ok) {
-        toast("Purchase order rejected and closed")
+        toast("Purchase order cancelled and closed")
         setDetailRefreshKey(key => key + 1)
         fetchInitialData()
       } else {
@@ -1769,11 +1763,10 @@ export default function Suppliers() {
             categories={categories}
             units={units}
             warehouses={warehouses}
-            onClose={() => setViewTarget(null)} 
+            onClose={() => setViewTarget(null)}
             onReceive={(p) => setReceiveTarget(p)}
-            onDecline={handleDecline}
-            onUpdate={fetchInitialData}
-            refreshKey={detailRefreshKey}
+            onCancel={handleCancel}
+            onUpdate={fetchInitialData}            refreshKey={detailRefreshKey}
           />
         )}
 
