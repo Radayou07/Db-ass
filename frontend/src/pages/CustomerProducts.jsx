@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useAuth } from "../context/AuthContext"
 import { useToast } from "../context/ToastContext"
 import { useNavigate, useLocation } from "react-router-dom"
@@ -12,6 +12,7 @@ import { ProductSkeleton } from "../components/Skeleton"
 
 /* ─── Add to Cart Modal ─── */
 function AddToCartModal({ product, onConfirm, onClose }) {
+  const { resolveImageUrl } = useAuth()
   const [qty, setQty] = useState(1)
 
   return (
@@ -24,7 +25,7 @@ function AddToCartModal({ product, onConfirm, onClose }) {
 
         <div className="flex gap-5 mb-8 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-black/5 dark:border-white/5">
           <div className="w-16 h-16 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden border border-black/5 dark:border-white/5 shadow-sm shrink-0">
-             {product.images?.[0] ? <img src={product.images[0].url} className="w-full h-full object-cover"/> : <FiPackage className="text-slate-300" size={24}/>}
+             {product.images?.[0] ? <img src={resolveImageUrl(product.images[0].url)} className="w-full h-full object-cover"/> : <FiPackage className="text-slate-300" size={24}/>}
           </div>
           <div className="min-w-0">
             <p className="font-bold text-sm truncate text-slate-800 dark:text-white">{product.name}</p>
@@ -80,7 +81,7 @@ function AddToCartModal({ product, onConfirm, onClose }) {
 /* ─── Product Card Component ─── */
 function ProductCard({ product, onAddToCart }) {
   const navigate = useNavigate()
-  const { authFetch } = useAuth()
+  const { authFetch, resolveImageUrl } = useAuth()
   const queryClient = useQueryClient()
   const [activeImage, setActiveImage] = useState(0)
   const images = product.images?.length > 0 ? product.images : [{ url: null }]
@@ -122,7 +123,7 @@ function ProductCard({ product, onAddToCart }) {
     >
       <div className="w-full h-56 bg-slate-50 dark:bg-slate-800/50 relative overflow-hidden group/img">
         {images[activeImage]?.url ? (
-          <img src={images[activeImage].url} alt={product.name} className="w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110" />
+          <img src={resolveImageUrl(images[activeImage].url)} alt={product.name} className="w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
              <FiBox className="w-12 h-12 text-slate-300 dark:text-slate-600" />
@@ -197,7 +198,7 @@ function ProductCard({ product, onAddToCart }) {
 }
 
 export default function CustomerProducts() {
-  const { authFetch } = useAuth()
+  const { authFetch, resolveImageUrl } = useAuth()
   const { toast } = useToast()
   const location = useLocation()
   const queryClient = useQueryClient()
@@ -243,13 +244,46 @@ export default function CustomerProducts() {
     cartMutation.mutate({ id: cartTarget.id, qty })
   }
 
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.company?.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = selectedCategory === "All" || String(product.category_id) === String(selectedCategory)
-    return matchesSearch && matchesCategory
-  })
+  const filteredProducts = useMemo(() => {
+    // 1. Basic category filter
+    let list = products.filter(p => selectedCategory === "All" || String(p.category_id) === String(selectedCategory))
+
+    if (!searchQuery.trim()) return list
+
+    // 2. Advanced Weighted Search
+    const query = searchQuery.toLowerCase().trim()
+    const keywords = query.split(/\s+/).filter(k => k.length > 0)
+
+    return list
+      .map(product => {
+        let score = 0
+        const name = product.name.toLowerCase()
+        const desc = (product.description || "").toLowerCase()
+        const brand = (product.company || "").toLowerCase()
+
+        // Exact full phrase match (Highest)
+        if (name === query) score += 100
+        else if (name.includes(query)) score += 50
+        
+        if (brand === query) score += 40
+        else if (brand.includes(query)) score += 20
+
+        // Individual keyword matches
+        keywords.forEach(kw => {
+          // Weighting: Name > Brand > Description
+          if (name.includes(kw)) score += 15
+          if (brand.includes(kw)) score += 10
+          if (desc.includes(kw)) score += 2
+
+          // Bonus for starting with the keyword
+          if (name.startsWith(kw)) score += 10
+        })
+
+        return { ...product, searchScore: score }
+      })
+      .filter(product => product.searchScore > 0)
+      .sort((a, b) => b.searchScore - a.searchScore)
+  }, [products, searchQuery, selectedCategory])
 
   return (
     <div className="min-h-screen p-6 pb-20 bg-slate-50 dark:bg-slate-950 transition-colors duration-300">

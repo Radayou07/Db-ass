@@ -61,6 +61,7 @@ export default function Cart() {
     onSuccess: (res, variables) => {
       toast(variables.paid ? "Order placed and paid successfully!" : "Order placed successfully!")
       queryClient.invalidateQueries({ queryKey: ['cart'] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
       window.dispatchEvent(new Event('cart_updated'))
       navigate("/orders")
     },

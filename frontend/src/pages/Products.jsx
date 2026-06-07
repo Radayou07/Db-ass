@@ -417,7 +417,8 @@ export default function Products() {
       discount_percent: product.discount_percent || 0,
       discount_expires_at: product.discount_expires_at || "",
       images: product.images?.map(img => img.url) || [],
-      buy_cost: product.source_unit_price || "",
+      buy_cost: product.last_cost || "",
+      source_supplier_id: product.source_supplier_id || "",
       markup_percent: "",
       profit_amount: ""
     });
@@ -531,6 +532,7 @@ export default function Products() {
       toast(variables.paid ? "Transaction finalized!" : "Order reserved!")
       setBuyTarget(null)
       queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
     },
     onError: (err) => toast(err.response?.data?.error || "Failed", "error")
   })
@@ -763,10 +765,10 @@ export default function Products() {
                   <div className="space-y-2.5">
                     <div className="grid grid-cols-2 gap-2">
                       <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 p-2.5">
-                        <label className="block text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1 px-1">Buy Cost / {formUnitLabel} *</label>
+                        <label className="block text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1 px-1">Buy Cost / {formUnitLabel} {currentProduct ? "" : "*"}</label>
                         <div className="relative">
                           <FiDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500" size={14}/>
-                          <input required type="number" min="0" step="0.01" value={formData.buy_cost} onChange={event => updateBuyCost(event.target.value)} className="w-full pl-8 pr-2 py-2 bg-white dark:bg-slate-900 rounded-xl border border-emerald-100 dark:border-emerald-900/40 focus:border-emerald-500 outline-none shadow-inner font-black text-sm text-emerald-700 dark:text-emerald-300" />
+                          <input required={!currentProduct} type="number" min="0" step="0.01" value={formData.buy_cost} onChange={event => updateBuyCost(event.target.value)} className="w-full pl-8 pr-2 py-2 bg-white dark:bg-slate-900 rounded-xl border border-emerald-100 dark:border-emerald-900/40 focus:border-emerald-500 outline-none shadow-inner font-black text-sm text-emerald-700 dark:text-emerald-300" />
                         </div>
                       </div>
                       <div className="rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/40 p-2.5">

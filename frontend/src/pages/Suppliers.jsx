@@ -288,7 +288,7 @@ function ReceiptModal({ purchase, warehouses, onClose, onConfirm }) {
 
 /* ─── Add Product From Supplier Modal ─── */
 function SupplierProductCreateModal({ supplier, initialProduct, brands, categories, units, warehouses, onClose, onCreated }) {
-  const { authFetch } = useAuth()
+  const { authFetch, resolveImageUrl } = useAuth()
   const { toast } = useToast()
   const isModify = Boolean(initialProduct?.product_id)
   const initialCost = initialProduct?.unit_price || ""
@@ -557,10 +557,10 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
               <div className="space-y-2.5">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 p-2.5">
-                    <label className="block text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1 px-1">Buy Cost / {unitLabel} *</label>
+                    <label className="block text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1 px-1">Buy Cost / {unitLabel} {isModify ? "" : "*"}</label>
                     <div className="relative">
                       <FiDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500" size={14}/>
-                      <input required type="number" min="0" step="0.01" value={form.buy_cost} onChange={event => updateBuyCost(event.target.value)} className="w-full pl-8 pr-2 py-2 bg-white dark:bg-slate-900 rounded-xl border border-emerald-100 dark:border-emerald-900/40 focus:border-emerald-500 outline-none shadow-inner font-black text-sm text-emerald-700 dark:text-emerald-300" />
+                      <input required={!isModify} type="number" min="0" step="0.01" value={form.buy_cost} onChange={event => updateBuyCost(event.target.value)} className="w-full pl-8 pr-2 py-2 bg-white dark:bg-slate-900 rounded-xl border border-emerald-100 dark:border-emerald-900/40 focus:border-emerald-500 outline-none shadow-inner font-black text-sm text-emerald-700 dark:text-emerald-300" />
                     </div>
                   </div>
                   <div className="rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/40 p-2.5">
@@ -654,7 +654,7 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
                     <div className="grid grid-cols-5 gap-1.5">
                       {form.images.map((url, index) => (
                         <div key={url + index} className="relative aspect-square rounded-xl overflow-hidden border border-black/5 dark:border-white/10 group">
-                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          <img src={resolveImageUrl(url)} alt="" className="w-full h-full object-cover" />
                           <button type="button" onClick={() => removeImage(index)} className="absolute top-0.5 right-0.5 w-5 h-5 rounded-lg bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg">
                             <FiX size={11}/>
                           </button>
@@ -1133,7 +1133,7 @@ function SupplierDetailsModal({ supplier, brands, categories, units, warehouses,
 
 /* ─── Supplier modal ─── */
 function SupplierModal({ initial, onSave, onClose }) {
-  const { authFetch } = useAuth()
+  const { authFetch, resolveImageUrl } = useAuth()
   const isEdit = !!initial?.id
   const [form, setForm] = useState(() => {
     if (initial) {
@@ -1235,7 +1235,7 @@ function SupplierModal({ initial, onSave, onClose }) {
               <div className="flex flex-wrap gap-3">
                 {form.images?.map((url, idx) => (
                   <div key={idx} className="relative w-20 h-20 group">
-                    <img src={url} className="w-full h-full object-cover rounded-2xl border border-black/5 dark:border-white/10" alt="" />
+                    <img src={resolveImageUrl(url)} className="w-full h-full object-cover rounded-2xl border border-black/5 dark:border-white/10" alt="" />
                     <button 
                       type="button"
                       onClick={() => removeImage(idx)}
@@ -1394,6 +1394,7 @@ function SupplierWorkloadChart({ suppliers }) {
 }
 
 function SupplierProfilePanel({ supplier, onClose, onView, onEdit, onNewPO }) {
+  const { resolveImageUrl } = useAuth()
   if (!supplier) {
     return (
       <aside className="hidden xl:flex w-[360px] shrink-0 rounded-[2rem] border border-box-border dark:border-box-dark-border bg-box-bg dark:bg-box-dark-bg items-center justify-center text-center p-8">

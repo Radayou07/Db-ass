@@ -10,7 +10,7 @@ export default function Header({ isDark, setIsDark }) {
   
   const [categories, setCategories] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('All Categories')
+  const [selectedCategory, setSelectedCategory] = useState('All')
   const [cartCount, setCartCount] = useState(0)
   
   useEffect(() => {
@@ -102,7 +102,7 @@ export default function Header({ isDark, setIsDark }) {
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="bg-transparent text-xs font-bold text-slate-600 dark:text-slate-300 outline-none appearance-none pr-6 cursor-pointer"
               >
-                <option value="All Categories">All Categories</option>
+                <option value="All">All Categories</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
