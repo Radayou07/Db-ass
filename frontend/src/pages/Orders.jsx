@@ -6,6 +6,9 @@ import {
   FiShoppingBag, FiDollarSign, FiClock, FiCheckCircle,
   FiChevronUp, FiChevronDown, FiAlertTriangle, FiActivity, FiUser, FiCreditCard, FiCheck, FiSmartphone
 } from "react-icons/fi"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import axios from "axios"
+import { Skeleton } from "../components/Skeleton"
 
 // Fixed orderTotal to account for discount_amount
 const orderTotal = o => {
@@ -125,6 +128,7 @@ function StaffPaymentModal({ order, onConfirm, onClose }) {
 
 /* ─── Detail modal ─── */
 function OrderDetailModal({ order, onTogglePaid, onClose, isInternal }) {
+  const { resolveImageUrl } = useAuth()
   const total = orderTotal(order)
   const subtotal = order.details?.reduce((s, d) => s + d.quantity * d.price, 0) || 0
 
@@ -160,7 +164,14 @@ function OrderDetailModal({ order, onTogglePaid, onClose, isInternal }) {
               <tbody className="divide-y divide-black/[.05] dark:divide-white/[.06]">
                 {order.details?.map((d, i) => (
                   <tr key={i} className="hover:bg-black/[.01] dark:hover:bg-white/[.01]">
-                    <td className="px-4 py-2 text-slate-700 dark:text-slate-200 font-medium">{d.product_name}</td>
+                    <td className="px-4 py-2">
+                       <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 overflow-hidden shrink-0 border border-black/5">
+                             {d.image_url ? <img src={resolveImageUrl(d.image_url)} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-slate-200"><FiShoppingBag size={14}/></div>}
+                          </div>
+                          <span className="text-slate-700 dark:text-slate-200 font-medium truncate">{d.product_name}</span>
+                       </div>
+                    </td>
                     <td className="px-4 py-2 text-center text-slate-500">{d.quantity}</td>
                     <td className="px-4 py-2 text-right text-slate-500">${Number(d.price).toFixed(2)}</td>
                     <td className="px-4 py-2 text-right text-slate-900 dark:text-white font-bold">${(d.quantity * d.price).toFixed(2)}</td>
@@ -215,10 +226,16 @@ function OrderDetailModal({ order, onTogglePaid, onClose, isInternal }) {
 export default function Orders() {
   const { user, authFetch } = useAuth()
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   const isInternal = user?.role === "admin" || user?.role === "staff"
 
-  const [orders, setOrders] = useState([])
-  const [loading, setLoading] = useState(true)
+  // React Query Fetching
+  const { data: orders = [], isLoading: loadingOrders } = useQuery({
+    queryKey: ['orders'],
+    queryFn: () => axios.get('/orders').then(res => res.data)
+  })
+
+  const loading = loadingOrders
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState("all")
   const [sort, setSort] = useState({ field: "date", dir: "desc" })
@@ -227,28 +244,35 @@ export default function Orders() {
   const [payTarget, setPayTarget] = useState(null)
   const [staffPayTarget, setStaffPayTarget] = useState(null)
 
-  useEffect(() => {
-    fetchOrders()
-  }, [])
+  // Mutations
+  const deleteMutation = useMutation({
+    mutationFn: (id) => axios.delete(`/orders/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      toast("Order cancelled.")
+    },
+    onError: () => toast("Network error", "error")
+  })
 
-  const fetchOrders = async () => {
-    setLoading(true)
-    try {
-      const res = await authFetch("/orders")
-      if (res.ok) setOrders(await res.json())
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
+  const paymentMutation = useMutation({
+    mutationFn: ({ id, method }) => axios.post(`/orders/${id}/pay`, { payment_method: method }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      toast("Payment successful!")
+      setPayTarget(null)
+      setStaffPayTarget(null)
+      setViewOrder(null)
+    },
+    onError: (err) => toast(err.response?.data?.error || "Payment failed", "error")
+  })
+
+  const deleteOrder = (id) => {
+    if (!window.confirm("Cancel this order?")) return
+    deleteMutation.mutate(id)
   }
 
-  const deleteOrder = async (id) => {
-    if (!window.confirm("Cancel this order?")) return
-    try {
-      const res = await authFetch(`/orders/${id}`, { method: "DELETE" })
-      if (res.ok) {
-        toast("Order cancelled.")
-        fetchOrders()
-      }
-    } catch (err) { toast("Network error", "error") }
+  const processPayment = (orderId, method) => {
+    paymentMutation.mutate({ id: orderId, method })
   }
 
   const paid = orders.filter(o => o.payment_status === 1)
@@ -274,31 +298,6 @@ export default function Orders() {
   function handleSort(f) {
     setSort(s => s.field === f ? { field:f, dir: s.dir==="asc" ? "desc" : "asc" } : { field:f, dir:"asc" })
   }
-
-  const processPayment = async (orderId, method) => {
-    try {
-      const res = await authFetch(`/orders/${orderId}/pay`, { 
-        method: "POST",
-        body: JSON.stringify({ payment_method: method })
-      })
-      if (res.ok) {
-        toast("Payment successful!")
-        fetchOrders()
-        setPayTarget(null)
-        setStaffPayTarget(null)
-        setViewOrder(null)
-      } else {
-        const err = await res.json()
-        toast(err.error || "Payment failed", "error")
-      }
-    } catch (err) { toast("Network error", "error") }
-  }
-
-  if (loading) return (
-    <div className="h-screen flex items-center justify-center text-sky-500 animate-pulse bg-main-bg dark:bg-main-dark-bg">
-      <FiActivity size={40} />
-    </div>
-  )
 
   return (
     <div className="min-h-screen p-6 flex flex-col gap-6 bg-main-bg dark:bg-main-dark-bg transition-colors">
@@ -352,7 +351,15 @@ export default function Orders() {
               </tr>
             </thead>
             <tbody className="divide-y divide-black/[.02] dark:divide-white/[.02]">
-              {filtered.map(order => (
+              {loading ? (
+                [...Array(5)].map((_, i) => (
+                  <tr key={i}>
+                    <td colSpan={isInternal ? 6 : 5} className="px-6 py-4">
+                      <Skeleton className="h-8 w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : filtered.map(order => (
                 <tr key={order.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[.02] transition-colors group">
                   <td className="px-6 py-4 font-black text-slate-400 text-xs">#{order.id}</td>
                   {isInternal && (

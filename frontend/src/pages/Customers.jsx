@@ -6,6 +6,9 @@ import {
   FiUser, FiPhone, FiMapPin, FiUsers, FiShoppingBag,
   FiChevronUp, FiChevronDown, FiAlertTriangle, FiActivity, FiCalendar, FiDollarSign
 } from "react-icons/fi"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import axios from "axios"
+import { Skeleton } from "../components/Skeleton"
 
 /* ─── Helpers ─── */
 const AVATAR_COLORS = [
@@ -307,28 +310,61 @@ function SortTh({ label, field, sort, onSort, className = "" }) {
 /* ─── Main page ─── */
 export default function Customers() {
   const { authFetch } = useAuth()
-  const [customers, setCustomers] = useState([])
-  const [loading,   setLoading]   = useState(true)
+  const queryClient = useQueryClient()
+  
+  // React Query Fetching
+  const { data: customers = [], isLoading: loadingCustomers } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => axios.get('/customers').then(res => res.data)
+  })
+
+  const loading = loadingCustomers
   const [search,    setSearch]    = useState("")
   const [sort,      setSort]      = useState({ field: "name", dir: "asc" })
   const [modal,     setModal]     = useState(null)   // null | { mode:"add"|"edit", data? }
   const [delTarget, setDelTarget] = useState(null)   // customer to delete
   const [viewTarget, setViewTarget] = useState(null) // customer to view details
 
-  useEffect(() => {
-    fetchCustomers()
-  }, [])
+  // Mutations
+  const customerMutation = useMutation({
+    mutationFn: ({ url, method, data }) => axios({ url, method, data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] })
+      setModal(null)
+    },
+    onError: (err) => alert(err.response?.data?.error || "Failed")
+  })
 
-  async function fetchCustomers() {
-    setLoading(true)
-    try {
-      const res = await authFetch("/customers")
-      if (res.ok) setCustomers(await res.json())
-    } catch (err) {
-      console.error("Fetch customers failed", err)
-    } finally {
-      setLoading(false)
-    }
+  const deleteMutation = useMutation({
+    mutationFn: (id) => axios.delete(`/customers/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] })
+      setDelTarget(null)
+    },
+    onError: (err) => alert(err.response?.data?.error || "Failed")
+  })
+
+  /* Sort toggle */
+  function handleSort(field) {
+    setSort(s => s.field === field
+      ? { field, dir: s.dir === "asc" ? "desc" : "asc" }
+      : { field, dir: "asc" }
+    )
+  }
+
+  /* CRUD */
+  async function handleSave(form) {
+    const isEdit = !!modal.data?.id
+    customerMutation.mutate({
+      url: isEdit ? `/customers/${modal.data.id}` : "/customers",
+      method: isEdit ? "PUT" : "POST",
+      data: form
+    })
+  }
+
+  async function handleDelete() {
+    if (!delTarget) return
+    deleteMutation.mutate(delTarget.id)
   }
 
   /* Derived */
@@ -349,53 +385,6 @@ export default function Customers() {
   }, [customers, search, sort])
 
   const totalOrders = customers.reduce((s, c) => s + (c.orders?.length || 0), 0)
-
-  /* Sort toggle */
-  function handleSort(field) {
-    setSort(s => s.field === field
-      ? { field, dir: s.dir === "asc" ? "desc" : "asc" }
-      : { field, dir: "asc" }
-    )
-  }
-
-  /* CRUD */
-  async function handleSave(form) {
-    const isEdit = !!modal.data?.id
-    const url = isEdit ? `/customers/${modal.data.id}` : "/customers"
-    const method = isEdit ? "PUT" : "POST"
-
-    try {
-      const res = await authFetch(url, {
-        method,
-        body: JSON.stringify(form)
-      })
-      if (res.ok) {
-        setModal(null)
-        fetchCustomers()
-      } else {
-        const err = await res.json()
-        alert(err.error || "Failed to save customer")
-      }
-    } catch (err) {
-      alert("Network error saving customer")
-    }
-  }
-
-  async function handleDelete() {
-    if (!delTarget) return
-    try {
-      const res = await authFetch(`/customers/${delTarget.id}`, { method: "DELETE" })
-      if (res.ok) {
-        setCustomers(cs => cs.filter(c => c.id !== delTarget.id))
-        setDelTarget(null)
-      } else {
-        const err = await res.json()
-        alert(err.error || "Failed to delete customer")
-      }
-    } catch (err) {
-      alert("Network error deleting customer")
-    }
-  }
 
   return (
     <div className="h-screen p-5 flex flex-col gap-5 text-slate-700 dark:text-slate-100">
@@ -455,8 +444,8 @@ export default function Customers() {
       <Card className="flex-1 flex flex-col overflow-hidden">
         <div className="overflow-auto flex-1">
           {loading ? (
-            <div className="flex items-center justify-center h-full text-sky-500 animate-pulse">
-              <FiActivity size={40} />
+            <div className="p-5 space-y-4">
+               {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
           ) : (
             <table className="w-full min-w-[560px] border-collapse">

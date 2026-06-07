@@ -9,6 +9,8 @@ import { FiLogOut, FiShield, FiUser, FiTag, FiExternalLink, FiCheck, FiLayout } 
 import { BsBoxSeam } from "react-icons/bs"
 import DarkMode from "./DarkMode"
 import { useAuth } from "../context/AuthContext"
+import { useQueryClient } from "@tanstack/react-query"
+import axios from "axios"
 
 const ADMIN_NAV = [
   { to: "/staff",          Icon: IoMdHome,       label: "Home" },
@@ -32,12 +34,20 @@ function initials(name = "") {
 export default function SideBar({ isDark, setIsDark }) {
   const [isOpen, setIsOpen] = useState(true)
   const { pathname }        = useLocation()
-  const { user, isAdmin, logout } = useAuth()
+  const { user, isAdmin, logout, resolveImageUrl } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const handleLogout = () => {
     logout()
     navigate("/login")
+  }
+
+  const prefetch = (key, url) => {
+    queryClient.prefetchQuery({
+      queryKey: [key],
+      queryFn: () => axios.get(url).then(res => res.data)
+    })
   }
 
   // Admin menu selection
@@ -84,10 +94,32 @@ export default function SideBar({ isDark, setIsDark }) {
       <nav className="flex-1 py-3 px-2 flex flex-col gap-0.5 overflow-y-auto overflow-x-hidden">
         {menu.map(({ to, Icon, label }) => {
           const active = pathname === to
+          const queryKeyMap = {
+            "/staff/products": "products",
+            "/staff/suppliers": "suppliers",
+            "/staff/customers": "customers",
+            "/staff/orders": "orders",
+            "/staff/inventories": "inventory",
+            "/staff/staff": "staff",
+            "/staff/brands": "brands",
+            "/staff/discounts": "discounts"
+          }
+          const endpointMap = {
+            "/staff/products": "/products",
+            "/staff/suppliers": "/suppliers",
+            "/staff/customers": "/customers",
+            "/staff/orders": "/orders",
+            "/staff/inventories": "/inventory/warehouses",
+            "/staff/staff": "/auth/staff",
+            "/staff/brands": "/brands",
+            "/staff/discounts": "/discount"
+          }
+
           return (
             <Link
               key={to}
               to={to}
+              onMouseEnter={() => queryKeyMap[to] && prefetch(queryKeyMap[to], endpointMap[to])}
               title={!isOpen ? label : undefined}
               className={`
                 relative flex items-center gap-3 px-3 py-2.5 rounded-xl
@@ -136,7 +168,7 @@ export default function SideBar({ isDark, setIsDark }) {
         >
           {user?.image_url ? (
             <img 
-              src={user.image_url} 
+              src={resolveImageUrl(user.image_url)} 
               alt={user.name} 
               className="shrink-0 w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-white/10"
             />

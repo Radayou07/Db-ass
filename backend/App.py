@@ -29,7 +29,7 @@ def create_app():
     # In production, this should include your frontend's Render URL
     allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
     if "*" in allowed_origins:
-        allowed_origins = "*"
+            allowed_origins = "*"
 
     CORS(app, resources={r"/*": {"origins": allowed_origins}}, supports_credentials=True)
     

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 
 export default function ManageStore() {
-  const { authFetch } = useAuth()
+  const { authFetch, resolveImageUrl } = useAuth()
   const { toast } = useToast()
   
   const [banners, setBanners] = useState([])
@@ -242,7 +242,7 @@ export default function ManageStore() {
                     <div key={banner.id} className="group rounded-[2rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 flex flex-col lg:flex-row items-center gap-8 hover:border-sky-200 dark:hover:border-sky-900/50 transition-all shadow-sm">
                       {/* Preview Image */}
                       <div className="w-full lg:w-48 h-24 rounded-2xl bg-slate-50 dark:bg-slate-950 overflow-hidden border border-slate-100 dark:border-slate-800 shrink-0 shadow-inner">
-                        <img src={banner.image_url} alt={banner.title_text} className="w-full h-full object-cover" />
+                        <img src={resolveImageUrl(banner.image_url)} alt={banner.title_text} className="w-full h-full object-cover" />
                       </div>
 
                       {/* Info */}
@@ -313,7 +313,7 @@ export default function ManageStore() {
                      <div className="relative aspect-[4/3] rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 overflow-hidden flex items-center justify-center shadow-inner group">
                         {config.side_promo_image_url ? (
                           <>
-                            <img src={config.side_promo_image_url} className="w-full h-full object-cover" />
+                            <img src={resolveImageUrl(config.side_promo_image_url)} className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                <label className="cursor-pointer p-3 rounded-xl bg-white/20 backdrop-blur-md text-white hover:bg-white/30 transition-all">
                                   <FiUploadCloud size={20}/>
@@ -388,7 +388,7 @@ export default function ManageStore() {
                                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-all text-left group"
                              >
                                 <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-950 overflow-hidden shrink-0">
-                                   {p.images?.[0] ? <img src={p.images[0].url} className="w-full h-full object-cover"/> : <FiPackage className="m-auto text-slate-300" size={16}/>}
+                                   {p.images?.[0] ? <img src={resolveImageUrl(p.images[0].url)} className="w-full h-full object-cover"/> : <FiPackage className="m-auto text-slate-300" size={16}/>}
                                 </div>
                                 <div className="min-w-0">
                                    <p className="text-[11px] font-black text-slate-700 dark:text-white truncate">{p.name}</p>
@@ -463,7 +463,7 @@ export default function ManageStore() {
                    <div className="relative aspect-video rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 overflow-hidden flex items-center justify-center shadow-inner group">
                       {formData.image_url ? (
                         <>
-                          <img src={formData.image_url} className="w-full h-full object-cover" />
+                          <img src={resolveImageUrl(formData.image_url)} className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                              <label className="cursor-pointer p-4 rounded-2xl bg-white/20 backdrop-blur-md text-white hover:bg-white/30 transition-all">
                                 <FiUploadCloud size={24}/>
@@ -530,7 +530,7 @@ export default function ManageStore() {
                               className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-all text-left group"
                             >
                                <div className="w-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-950 overflow-hidden shrink-0 border border-black/5">
-                                  {p.images?.[0] ? <img src={p.images[0].url} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-slate-300"><FiPackage size={20}/></div>}
+                                  {p.images?.[0] ? <img src={resolveImageUrl(p.images[0].url)} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-slate-300"><FiPackage size={20}/></div>}
                                </div>
                                <div className="min-w-0">
                                   <p className="text-xs font-black text-slate-700 dark:text-white truncate group-hover:text-sky-600 transition-colors">{p.name}</p>

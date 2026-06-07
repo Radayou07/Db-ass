@@ -104,6 +104,13 @@ export function AuthProvider({ children }) {
     })
   }
 
+  const resolveImageUrl = (url) => {
+    if (!url) return null
+    if (url.startsWith('http')) return url
+    const baseUrl = API.replace('/api', '')
+    return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`
+  }
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -115,6 +122,7 @@ export function AuthProvider({ children }) {
       register,
       authFetch,
       updateUser,
+      resolveImageUrl
     }}>
       {children}
     </AuthContext.Provider>

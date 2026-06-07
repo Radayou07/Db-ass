@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useAuth } from "../context/AuthContext"
 import { useToast } from "../context/ToastContext"
 import { useNavigate, useLocation } from "react-router-dom"
@@ -6,9 +6,13 @@ import {
   FiSearch, FiEdit2, FiTrash2, FiPlus, FiGrid, FiList, 
   FiPackage, FiTag, FiDollarSign, FiArchive, FiX, FiActivity, FiCalendar, FiImage, FiPlusCircle, FiMinusCircle, FiUploadCloud, FiHome, FiFolder, FiShoppingCart, FiCheck, FiCreditCard, FiShield, FiBox
 } from "react-icons/fi"
+import { ProductSkeleton } from "../components/Skeleton"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import axios from "axios"
 
 /* ─── Product Card Component ─── */
 function ProductCard({ product, onEdit, onDelete, onBuy, isInternal }) {
+  const { resolveImageUrl } = useAuth()
   const navigate = useNavigate()
   const [activeImage, setActiveImage] = useState(0)
   const images = product.images?.length > 0 ? product.images : [{ url: null }]
@@ -35,7 +39,7 @@ function ProductCard({ product, onEdit, onDelete, onBuy, isInternal }) {
         <div className="flex gap-3 flex-1">
           <div className="w-20 h-20 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden border border-black/5 dark:border-white/5 relative group/img">
             {images[activeImage]?.url ? (
-              <img src={images[activeImage].url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+              <img src={resolveImageUrl(images[activeImage].url)} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
             ) : (
               <FiPackage className="w-6 h-6 text-slate-300 dark:text-slate-600" />
             )}
@@ -101,7 +105,7 @@ function ProductCard({ product, onEdit, onDelete, onBuy, isInternal }) {
       {/* Huge Image Area */}
       <div className="w-full h-56 bg-slate-50 dark:bg-slate-800/50 relative overflow-hidden group/img">
         {images[activeImage]?.url ? (
-          <img src={images[activeImage].url} alt={product.name} className="w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110" />
+          <img src={resolveImageUrl(images[activeImage].url)} alt={product.name} className="w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
              <FiBox className="w-12 h-12 text-slate-300 dark:text-slate-600" />
@@ -215,6 +219,7 @@ function PaymentQRModal({ amount, onDone, onClose }) {
 
 /* ─── Buy Modal ─── */
 function BuyModal({ product, onConfirm, onClose }) {
+  const { resolveImageUrl } = useAuth()
   const [qty, setQty] = useState(1)
   const [showQR, setShowQR] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -242,7 +247,7 @@ function BuyModal({ product, onConfirm, onClose }) {
 
           <div className="flex gap-5 mb-8 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-black/5 dark:border-white/5">
             <div className="w-20 h-20 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden border border-black/5 dark:border-white/5 shadow-sm shrink-0">
-               {product.images?.[0] ? <img src={product.images[0].url} className="w-full h-full object-cover"/> : <FiPackage className="text-slate-300" size={32}/>}
+               {product.images?.[0] ? <img src={resolveImageUrl(product.images[0].url)} className="w-full h-full object-cover"/> : <FiPackage className="text-slate-300" size={32}/>}
             </div>
             <div className="min-w-0">
               <p className="font-bold text-base truncate">{product.name}</p>
@@ -315,18 +320,39 @@ function BuyModal({ product, onConfirm, onClose }) {
 }
 
 export default function Products() {
-  const { user, authFetch } = useAuth()
+  const { user, authFetch, resolveImageUrl } = useAuth()
   const { toast } = useToast()
   const location = useLocation()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   
-  // App States
-  const [products, setProducts] = useState([])
-  const [categories, setCategories] = useState([])
-  const [brands, setBrands] = useState([])
-  const [units, setUnits] = useState([])
-  const [warehouses, setWarehouses] = useState([])
-  const [loading, setLoading] = useState(true)
+  // React Query Fetching
+  const { data: products = [], isLoading: loadingProducts } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => axios.get('/products').then(res => res.data)
+  })
+  
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => axios.get('/categories').then(res => res.data)
+  })
+
+  const { data: brands = [] } = useQuery({
+    queryKey: ['brands'],
+    queryFn: () => axios.get('/brands').then(res => res.data)
+  })
+
+  const { data: units = [] } = useQuery({
+    queryKey: ['units'],
+    queryFn: () => axios.get('/units').then(res => res.data)
+  })
+
+  const { data: warehouses = [] } = useQuery({
+    queryKey: ['warehouses'],
+    queryFn: () => axios.get('/inventory/warehouses').then(res => res.data)
+  })
+
+  const loading = loadingProducts
   const [error, setError] = useState(null)
   
   // Filter States
@@ -354,6 +380,78 @@ export default function Products() {
   const [isAddingCategory, setIsAddingCategory] = useState(false)
   const [isQuickAddingCategory, setIsQuickAddingCategory] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+
+  // ─── Derived State ───
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => {
+      const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          p.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          p.brand_name?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchCategory = selectedCategory === "All" || String(p.category_id) === String(selectedCategory);
+      return matchSearch && matchCategory;
+    });
+  }, [products, searchQuery, selectedCategory]);
+
+  const openAddModal = () => {
+    setCurrentProduct(null);
+    setFormData({
+      name: "", description: "", price: "", brand_id: "", expire: "", category_id: "", uom_id: "", initial_quantity: 0, warehouse_id: "", discount_percent: 0, discount_expires_at: "", existing_stock: 0, images: [],
+      buy_cost: "", markup_percent: "", profit_amount: ""
+    });
+    setIsFormModalOpen(true);
+  };
+
+  const openEditModal = (product, returnTo = null) => {
+    setCurrentProduct(product);
+    setEditReturnTo(returnTo);
+    setFormData({
+      name: product.name,
+      description: product.description || "",
+      price: product.price,
+      brand_id: product.brand_id,
+      expire: product.expire || "",
+      category_id: product.category_id,
+      uom_id: product.uom_id,
+      existing_stock: product.stock,
+      warehouse_id: product.warehouse_id || "",
+      discount_percent: product.discount_percent || 0,
+      discount_expires_at: product.discount_expires_at || "",
+      images: product.images?.map(img => img.url) || [],
+      buy_cost: product.source_unit_price || "",
+      markup_percent: "",
+      profit_amount: ""
+    });
+    setIsFormModalOpen(true);
+  };
+
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    const uploadFormData = new FormData();
+    files.forEach(file => uploadFormData.append('images', file));
+
+    setIsUploading(true);
+    try {
+      const response = await authFetch("/upload", { method: "POST", body: uploadFormData });
+      if (response.ok) {
+        const { urls } = await response.json();
+        setFormData(prev => ({ ...prev, images: [...prev.images, ...urls] }));
+      }
+    } catch (err) {
+      console.error("Upload failed", err);
+    } finally {
+      setIsUploading(false);
+      e.target.value = null;
+    }
+  };
+
+  const removeImage = (idx) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== idx)
+    }));
+  };
 
   const updateBuyCost = (value) => {
     const cost = Number(value) || 0
@@ -387,79 +485,97 @@ export default function Products() {
 
   const isInternal = user?.role === "admin" || user?.role === "staff"
 
-  const fetchInitialData = async () => {
-    setLoading(true)
-    try {
-      const [productsRes, categoriesRes, unitsRes, warehousesRes, brandsRes] = await Promise.all([
-        authFetch("/products"),
-        authFetch("/categories"),
-        authFetch("/units"),
-        authFetch("/inventory/warehouses"),
-        authFetch("/brands")
-      ])
-      if (productsRes.ok) setProducts(await productsRes.json())
-      if (categoriesRes.ok) setCategories(await categoriesRes.json())
-      if (unitsRes.ok) setUnits(await unitsRes.json())
-      if (warehousesRes.ok) setWarehouses(await warehousesRes.json())
-      if (brandsRes.ok) setBrands(await brandsRes.json())
-    } catch (err) {
-      setError("Failed to load store data.")
-    } finally {
-      setLoading(false)
+  // Mutations
+  const upsertMutation = useMutation({
+    mutationFn: ({ url, method, payload }) => axios({ url, method, data: payload }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      setIsFormModalOpen(false)
+      toast(currentProduct ? "Product record updated" : "Product catalog entry created")
+      if (currentProduct && editReturnTo) {
+        navigate(editReturnTo, { replace: true })
+      }
+    },
+    onError: (err) => {
+      toast(err.response?.data?.error || "Operation failed", "error")
     }
-  }
-
-  useEffect(() => {
-    fetchInitialData()
-  }, [])
-
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.brand_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.company?.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = selectedCategory === "All" || String(product.category_id) === String(selectedCategory)
-    return matchesSearch && matchesCategory
   })
 
-  // CRUD & Interaction logic
-  const openAddModal = () => {
-    setCurrentProduct(null)
-    setEditReturnTo(null)
-    setQuickCategoryName("")
-    setQuickCategoryError("")
-    setFormData({ 
-      name: "", description: "", 
-      price: "", 
-      brand_id: brands[0]?.id || "", expire: "", 
-      category_id: categories[0]?.id || "", 
-      uom_id: units[0]?.id || "",
-      initial_quantity: 0, warehouse_id: warehouses[0]?.id || "", 
-      discount_percent: 0, discount_expires_at: "",
-      existing_stock: 0,
-      images: [],
-      buy_cost: "", markup_percent: "", profit_amount: ""
-    })
-    setIsFormModalOpen(true)
+  const deleteMutation = useMutation({
+    mutationFn: (id) => axios.delete(`/products/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      setIsDeleteModalOpen(false)
+      toast("Product successfully purged from system")
+    },
+    onError: () => toast("Cannot delete product with history", "error")
+  })
+
+  const quickCategoryMutation = useMutation({
+    mutationFn: (name) => axios.post('/categories', { name }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      setFormData(prev => ({ ...prev, category_id: res.data.id }))
+      setNewCategoryName("")
+      setQuickCategoryName("")
+      toast("Category added")
+    },
+    onError: (err) => {
+      toast(err.response?.data?.error || "Failed", "error")
+    }
+  })
+
+  const orderMutation = useMutation({
+    mutationFn: (payload) => axios.post('/orders', payload),
+    onSuccess: (res, variables) => {
+      toast(variables.paid ? "Transaction finalized!" : "Order reserved!")
+      setBuyTarget(null)
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+    onError: (err) => toast(err.response?.data?.error || "Failed", "error")
+  })
+
+  const handleQuickCategoryAdd = async (event) => {
+    event?.preventDefault()
+    const name = newCategoryName.trim()
+    if (!name) return
+    quickCategoryMutation.mutate(name)
   }
 
-  const openEditModal = (product, returnTo = null) => {
-    setCurrentProduct(product)
-    setEditReturnTo(returnTo)
-    setQuickCategoryName("")
-    setQuickCategoryError("")
-    setFormData({
-      name: product.name, description: product.description || "", price: product.price, brand_id: product.brand_id || "",
-      expire: product.expire ? product.expire.split('T')[0] : "", category_id: product.category_id || "",
-      uom_id: product.uom_id || "",
-      initial_quantity: product.stock || 0, warehouse_id: product.warehouse_id || warehouses[0]?.id || "",
-      discount_percent: product.discount_percent || 0,
-      discount_expires_at: product.discount_expires_at ? product.discount_expires_at.split('T')[0] : "",
-      existing_stock: Number(product.stock) || 0,
-      images: product.images?.length > 0 ? product.images.map(img => img.url) : [],
-      buy_cost: product.last_cost || "", markup_percent: "", profit_amount: ""
-    })
-    setIsFormModalOpen(true)
+  const handleProductQuickCategoryAdd = async (event) => {
+    event?.preventDefault()
+    const name = quickCategoryName.trim()
+    if (!name) return
+    quickCategoryMutation.mutate(name)
+  }
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault()
+    const url = currentProduct ? `/products/${currentProduct.id}` : "/products"
+    const method = currentProduct ? "PUT" : "POST"
+    const payload = { ...formData }
+    if (currentProduct) delete payload.initial_quantity
+    
+    upsertMutation.mutate({ url, method, payload })
+  }
+
+  const handleDeleteConfirm = () => {
+    deleteMutation.mutate(currentProduct.id)
+  }
+
+  const handleDeleteCategory = async (id) => {
+    if (!window.confirm("Purge this category?")) return
+    try {
+      const res = await axios.delete(`/categories/${id}`)
+      if (res.status === 200) {
+        queryClient.invalidateQueries({ queryKey: ['categories'] })
+        toast("Category removed")
+      }
+    } catch (err) { toast("Failed", "error") }
+  }
+
+  const handleBuy = async (productId, quantity, isPaid = false) => {
+    orderMutation.mutate({ items: [{ product_id: productId, quantity }], paid: isPaid })
   }
 
   useEffect(() => {
@@ -473,174 +589,16 @@ export default function Products() {
     }
   }, [location.state, loading])
 
-  const handleQuickCategoryAdd = async (event) => {
-    event?.preventDefault()
-    event?.stopPropagation()
-
-    const categoryName = newCategoryName.trim()
-    if (!categoryName) return
-
-    const existingCategory = categories.find(
-      cat => cat.name.toLowerCase() === categoryName.toLowerCase()
-    )
-    if (existingCategory) {
-      setFormData(prev => ({ ...prev, category_id: existingCategory.id }))
-      setNewCategoryName("")
-      return
-    }
-
-    setIsAddingCategory(true)
-    try {
-      const response = await authFetch("/categories", { method: "POST", body: JSON.stringify({ name: categoryName }) })
-      if (response.ok) {
-        const newCat = await response.json()
-        setCategories(prev => [...prev, newCat])
-        setFormData(prev => ({ ...prev, category_id: newCat.id }))
-        setNewCategoryName("")
-        toast("New product category established")
-      } else { 
-        const errData = await response.json()
-        toast(errData.error || "Category registration failed", "error") 
-      }
-    } catch (err) { toast("Category synchronization error", "error") }
-    finally { setIsAddingCategory(false) }
+  // Removed old fetch logic and redundant effects
+  /*
+  const fetchInitialData = async () => {
+    ...
   }
 
-  const handleProductQuickCategoryAdd = async (event) => {
-    event?.preventDefault()
-    event?.stopPropagation()
-
-    const categoryName = quickCategoryName.trim()
-    if (!categoryName) return
-
-    setQuickCategoryError("")
-
-    const existingCategory = categories.find(
-      cat => cat.name.toLowerCase() === categoryName.toLowerCase()
-    )
-    if (existingCategory) {
-      setFormData(prev => ({ ...prev, category_id: existingCategory.id }))
-      setQuickCategoryName("")
-      return
-    }
-
-    setIsQuickAddingCategory(true)
-    try {
-      const response = await authFetch("/categories", {
-        method: "POST",
-        body: JSON.stringify({ name: categoryName })
-      })
-
-      const result = await response.json()
-      if (!response.ok) {
-        setQuickCategoryError(result.error || "Could not add category.")
-        return
-      }
-
-      setCategories(prev => [...prev, result])
-      setFormData(prev => ({ ...prev, category_id: result.id }))
-      setQuickCategoryName("")
-      toast("Category added via quick-link")
-    } catch (err) {
-      setQuickCategoryError("Network error while adding category.")
-    } finally {
-      setIsQuickAddingCategory(false)
-    }
-  }
-
-  const handleFileUpload = async (e) => {
-    const files = Array.from(e.target.files)
-    if (files.length === 0) return
-    const uploadFormData = new FormData()
-    files.forEach(file => uploadFormData.append('images', file))
-    setIsUploading(true)
-    try {
-      const response = await authFetch("/upload", { method: "POST", body: uploadFormData })
-      if (response.ok) {
-        const { urls } = await response.json()
-        setFormData({ ...formData, images: [...formData.images, ...urls] })
-        toast("Product media uploaded to cloud storage")
-      } else { toast("Media synchronization failed", "error") }
-    } catch (err) { toast("Cloud upload timeout", "error") }
-    finally { setIsUploading(false); e.target.value = null }
-  }
-
-  const removeImage = (index) => {
-    setFormData({ ...formData, images: formData.images.filter((_, i) => i !== index) })
-  }
-
-  const handleFormSubmit = async (e) => {
-    e.preventDefault()
-    const url = currentProduct ? `/products/${currentProduct.id}` : "/products"
-    const method = currentProduct ? "PUT" : "POST"
-    const payload = { ...formData }
-
-    if (currentProduct) {
-      // Quantity is read-only in edit mode to enforce PO-based stock management
-      delete payload.initial_quantity
-    }
-
-    try {
-      const response = await authFetch(url, { method, body: JSON.stringify(payload) })
-      if (response.ok) {
-        await response.json()
-        setIsFormModalOpen(false)
-        toast(currentProduct ? "Product record updated" : "Product catalog entry created")
-        if (currentProduct && editReturnTo) {
-          navigate(editReturnTo, { replace: true })
-          return
-        }
-        fetchInitialData()
-      }
-      else { const errData = await response.json(); toast(errData.error || "Catalog persistence error", "error") }
-    } catch (err) { toast("Server gateway error", "error") }
-  }
-
-  const handleDeleteConfirm = async () => {
-    try {
-      const response = await authFetch(`/products/${currentProduct.id}`, { method: "DELETE" })
-      if (response.ok) {
-        setIsDeleteModalOpen(false)
-        setProducts(products.filter(p => p.id !== currentProduct.id))
-        toast("Product successfully purged from system")
-      }
-      else { toast("Cannot delete product with historical order chain", "error") }
-    } catch (err) { toast("Action aborted: Connection failed", "error") }
-  }
-
-  const handleDeleteCategory = async (id) => {
-    if (!window.confirm("Purge this category from the system?")) return
-    try {
-      const response = await authFetch(`/categories/${id}`, { method: "DELETE" })
-      if (response.ok) {
-        setCategories(prev => prev.filter(c => c.id !== id))
-        toast("Product category successfully removed")
-      } else {
-        const errData = await response.json()
-        toast(errData.error || "Category removal rejected", "error")
-      }
-    } catch (err) { toast("Category gateway connection failed", "error") }
-  }
-
-  const handleBuy = async (productId, quantity, isPaid = false) => {
-    try {
-      const res = await authFetch("/orders", {
-        method: "POST",
-        body: JSON.stringify({ 
-          items: [{ product_id: productId, quantity }],
-          paid: isPaid
-        })
-      })
-      if (res.ok) {
-        toast(isPaid ? "Transaction finalized! Media processing started." : "Order reserved! Pending manual verification.")
-        setBuyTarget(null)
-        fetchInitialData() 
-      } else {
-        const err = await res.json()
-        toast(err.error || "Order placement failed", "error")
-      }
-    } catch (err) { toast("Checkout gateway timeout", "error") }
-  }
+  useEffect(() => {
+    fetchInitialData()
+  }, [])
+  */
 
   const selectedFormUnit = units.find(unit => String(unit.id) === String(formData.uom_id))
   const formUnitLabel = selectedFormUnit?.abbreviation || selectedFormUnit?.name || "unit"
@@ -709,9 +667,10 @@ export default function Products() {
         {/* Dynamic List */}
         <div className="flex-1 overflow-y-auto min-h-0 pr-1 -mr-1 custom-scrollbar">
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-full text-center"><FiActivity className="w-12 h-12 text-sky-500 animate-spin mb-4" /><p className="text-sm font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Loading Store...</p></div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center bg-box-bg dark:bg-box-dark-bg rounded-[3rem] border-2 border-dashed border-box-border dark:border-box-dark-border py-20 px-10"><FiPackage className="w-24 h-24 text-slate-200 dark:text-slate-600 mb-6" /><p className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">No products found</p><p className="text-sm text-slate-400 dark:text-slate-300 mt-2 font-medium">Try searching for something else or add a new product.</p></div>
+            <div className={viewMode === "list" ? "space-y-4 pb-10" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 pb-10"}>
+              {[...Array(8)].map((_, i) => <ProductSkeleton key={i} isInternal={isInternal} />)}
+            </div>
+          ) : filteredProducts.length === 0 ? (            <div className="flex flex-col items-center justify-center h-full text-center bg-box-bg dark:bg-box-dark-bg rounded-[3rem] border-2 border-dashed border-box-border dark:border-box-dark-border py-20 px-10"><FiPackage className="w-24 h-24 text-slate-200 dark:text-slate-600 mb-6" /><p className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">No products found</p><p className="text-sm text-slate-400 dark:text-slate-300 mt-2 font-medium">Try searching for something else or add a new product.</p></div>
           ) : (
             <div className={viewMode === "list" ? "space-y-4 pb-10" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 pb-10"}>
               {filteredProducts.map(product => (
@@ -904,7 +863,7 @@ export default function Products() {
                         <div className="grid grid-cols-5 gap-1.5 max-h-32 overflow-y-auto custom-scrollbar p-1">
                           {formData.images.map((url, index) => (
                             <div key={url + index} className="relative aspect-square rounded-xl overflow-hidden border border-black/5 dark:border-white/10 group">
-                              <img src={url} alt="" className="w-full h-full object-cover" />
+                              <img src={resolveImageUrl(url)} alt="" className="w-full h-full object-cover" />
                               <button type="button" onClick={() => removeImage(index)} className="absolute top-0.5 right-0.5 w-5 h-5 rounded-lg bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg">
                                 <FiX size={11}/>
                               </button>

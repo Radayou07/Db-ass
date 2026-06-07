@@ -49,7 +49,7 @@ def upload_files():
                 
                 if response.status_code == 200 and res_data.get("success"):
                     # Get the direct display URL
-                    url = res_data["data"]["url"]
+                    url = res_data["data"]["display_url"]
                     urls.append(url)
                 else:
                     error_msg = res_data.get("error", {}).get("message", "Unknown ImgBB error")

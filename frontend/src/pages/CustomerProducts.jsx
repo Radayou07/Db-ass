@@ -6,6 +6,9 @@ import {
   FiSearch, FiEdit2, FiTrash2, FiPlus, FiGrid, FiList, 
   FiPackage, FiTag, FiDollarSign, FiX, FiActivity, FiShoppingCart, FiCheck, FiCreditCard, FiBox, FiHeart, FiPlusCircle, FiMinusCircle 
 } from "react-icons/fi"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import axios from "axios"
+import { ProductSkeleton } from "../components/Skeleton"
 
 /* ─── Add to Cart Modal ─── */
 function AddToCartModal({ product, onConfirm, onClose }) {
@@ -78,34 +81,28 @@ function AddToCartModal({ product, onConfirm, onClose }) {
 function ProductCard({ product, onAddToCart }) {
   const navigate = useNavigate()
   const { authFetch } = useAuth()
+  const queryClient = useQueryClient()
   const [activeImage, setActiveImage] = useState(0)
-  const [inWishlist, setInWishlist] = useState(false)
   const images = product.images?.length > 0 ? product.images : [{ url: null }]
 
-  useEffect(() => {
-    const checkWishlist = async () => {
-      try {
-        const res = await authFetch("/wishlist")
-        if (res.ok) {
-          const list = await res.json()
-          setInWishlist(list.some(item => item.product_id === product.id))
-        }
-      } catch (err) {}
-    }
-    checkWishlist()
-  }, [product.id, authFetch])
+  // Wishlist Check using React Query
+  const { data: wishlist = [] } = useQuery({
+    queryKey: ['wishlist'],
+    queryFn: () => axios.get('/wishlist').then(res => res.data)
+  })
 
-  const toggleWishlist = async (e) => {
+  const inWishlist = wishlist.some(item => item.product_id === product.id)
+
+  const wishlistMutation = useMutation({
+    mutationFn: () => inWishlist 
+      ? axios.delete(`/wishlist/${product.id}`)
+      : axios.post(`/wishlist/${product.id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wishlist'] })
+  })
+
+  const toggleWishlist = (e) => {
     e.stopPropagation()
-    try {
-      if (inWishlist) {
-        const res = await authFetch(`/wishlist/${product.id}`, { method: "DELETE" })
-        if (res.ok) setInWishlist(false)
-      } else {
-        const res = await authFetch(`/wishlist/${product.id}`, { method: "POST" })
-        if (res.ok) setInWishlist(true)
-      }
-    } catch (err) {}
+    wishlistMutation.mutate()
   }
 
   const nextImage = (e) => {
@@ -203,13 +200,35 @@ export default function CustomerProducts() {
   const { authFetch } = useAuth()
   const { toast } = useToast()
   const location = useLocation()
+  const queryClient = useQueryClient()
   
-  const [products, setProducts] = useState([])
-  const [categories, setCategories] = useState([])
-  const [loading, setLoading] = useState(true)
+  // React Query Fetching
+  const { data: products = [], isLoading: loadingProducts } = useQuery({
+    queryKey: ['storefront-products'],
+    queryFn: () => axios.get('/products').then(res => res.data)
+  })
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => axios.get('/categories').then(res => res.data)
+  })
+
+  const loading = loadingProducts
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [cartTarget, setCartTarget] = useState(null)
+
+  // Mutations
+  const cartMutation = useMutation({
+    mutationFn: ({ id, qty }) => axios.post(`/cart/${id}`, { quantity: qty }),
+    onSuccess: () => {
+      window.dispatchEvent(new Event("cart_updated"))
+      queryClient.invalidateQueries({ queryKey: ['cart'] })
+      toast(`${cartTarget.name} added to cart!`)
+      setCartTarget(null)
+    },
+    onError: (err) => toast(err.response?.data?.error || "Failed", "error")
+  })
 
   // Handle URL Search Parameters
   useEffect(() => {
@@ -220,43 +239,8 @@ export default function CustomerProducts() {
     setSelectedCategory(cat)
   }, [location.search])
 
-  const fetchInitialData = async () => {
-    setLoading(true)
-    try {
-      const [productsRes, categoriesRes] = await Promise.all([
-        authFetch("/products"),
-        authFetch("/categories")
-      ])
-      if (productsRes.ok) setProducts(await productsRes.json())
-      if (categoriesRes.ok) setCategories(await categoriesRes.json())
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchInitialData()
-  }, [])
-
-  const handleAddToCart = async (qty) => {
-    try {
-      const res = await authFetch(`/cart/${cartTarget.id}`, {
-        method: "POST",
-        body: JSON.stringify({ quantity: qty })
-      })
-      if (res.ok) {
-        window.dispatchEvent(new Event("cart_updated"))
-        toast(`${cartTarget.name} added to cart!`)
-        setCartTarget(null)
-      } else {
-        const err = await res.json()
-        toast(err.error || "Failed to add to cart", "error")
-      }
-    } catch (err) {
-      toast("Network error", "error")
-    }
+  const handleAddToCart = (qty) => {
+    cartMutation.mutate({ id: cartTarget.id, qty })
   }
 
   const filteredProducts = products.filter(product => {
@@ -285,7 +269,7 @@ export default function CustomerProducts() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
           {loading ? (
-            <div className="col-span-full py-20 text-center"><FiActivity className="w-10 h-10 text-sky-500 animate-spin mx-auto mb-4"/><p className="text-sm font-bold text-slate-500">Loading Catalog...</p></div>
+            [...Array(8)].map((_, i) => <ProductSkeleton key={i} isInternal={false} />)
           ) : filteredProducts.length === 0 ? (
             <div className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-3xl border border-black/5 dark:border-white/5"><FiPackage className="w-16 h-16 text-slate-200 mx-auto mb-4"/><p className="text-lg font-black text-slate-800 dark:text-white">No products found</p></div>
           ) : (

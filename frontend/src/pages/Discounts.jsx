@@ -1,65 +1,48 @@
 import { useState, useEffect, useMemo } from "react"
 import { useAuth } from "../context/AuthContext"
 import { FiTag, FiPlus, FiEdit2, FiActivity, FiX, FiCheckCircle, FiXCircle } from "react-icons/fi"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import axios from "axios"
+import { Skeleton } from "../components/Skeleton"
 
 export default function Discounts() {
   const { authFetch } = useAuth()
-  const [discounts, setDiscounts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  
+  // React Query Fetching
+  const { data: discounts = [], isLoading: loading } = useQuery({
+    queryKey: ['discounts'],
+    queryFn: () => axios.get('/discount').then(res => res.data)
+  })
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [formData, setFormData] = useState({
     code: "", type: "percent", value: 0, min_order: 0, expires_at: "", is_active: true
   })
 
-  useEffect(() => {
-    fetchDiscounts()
-  }, [])
+  // Mutations
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, is_active }) => axios.patch(`/discount/${id}`, { is_active }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['discounts'] }),
+    onError: () => alert("Failed to update status")
+  })
 
-  async function fetchDiscounts() {
-    setLoading(true)
-    try {
-      const res = await authFetch("/discount")
-      if (res.ok) {
-        setDiscounts(await res.json())
-      }
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+  const createMutation = useMutation({
+    mutationFn: (data) => axios.post('/discount', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discounts'] })
+      setIsModalOpen(false)
+    },
+    onError: (err) => alert(err.response?.data?.error || "Failed to create discount")
+  })
+
+  const handleToggle = (id, currentStatus) => {
+    toggleMutation.mutate({ id, is_active: !currentStatus })
   }
 
-  const handleToggle = async (id, currentStatus) => {
-    try {
-      const res = await authFetch(`/discount/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ is_active: !currentStatus })
-      })
-      if (res.ok) {
-        fetchDiscounts()
-      }
-    } catch (err) {
-      alert("Failed to update status")
-    }
-  }
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault()
-    try {
-      const res = await authFetch("/discount", {
-        method: "POST",
-        body: JSON.stringify(formData)
-      })
-      if (res.ok) {
-        setIsModalOpen(false)
-        fetchDiscounts()
-      } else {
-        const err = await res.json()
-        alert(err.error || "Failed to create discount")
-      }
-    } catch (err) {
-      alert("Network error")
-    }
+    createMutation.mutate(formData)
   }
 
   return (
@@ -80,7 +63,9 @@ export default function Discounts() {
 
       <div className="flex-1 overflow-auto bg-box-bg dark:bg-box-dark-bg rounded-3xl border border-box-border dark:border-box-dark-border">
         {loading ? (
-          <div className="flex items-center justify-center h-full text-sky-500 animate-pulse"><FiActivity size={40}/></div>
+          <div className="p-6 space-y-4">
+             {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}
+          </div>
         ) : (
           <table className="w-full text-left">
             <thead className="bg-slate-50 dark:bg-slate-900 border-b border-black/5 dark:border-white/5 sticky top-0">

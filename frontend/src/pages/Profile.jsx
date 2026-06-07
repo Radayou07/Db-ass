@@ -4,7 +4,7 @@ import { useToast } from "../context/ToastContext"
 import { FiUser, FiMail, FiPhone, FiEdit3, FiCheck, FiX, FiInfo, FiCamera, FiLoader } from "react-icons/fi"
 
 export default function Profile() {
-  const { user, authFetch, updateUser } = useAuth()
+  const { user, authFetch, updateUser, resolveImageUrl } = useAuth()
   const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
@@ -100,12 +100,13 @@ export default function Profile() {
                 onClick={handleImageClick}
               >
                 {user?.image_url ? (
-                  <img 
-                    src={user.image_url} 
-                    alt={user.name} 
+                  <img
+                    src={resolveImageUrl(user.image_url)}
+                    alt={user.name}
                     className="w-full h-full rounded-full object-cover shadow-lg border-2 border-sky-500/20"
                   />
                 ) : (
+
                   <div className="w-full h-full bg-sky-500 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-sky-500/20">
                     {user?.name?.[0]?.toUpperCase() || "U"}
                   </div>

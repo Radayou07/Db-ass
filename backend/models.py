@@ -141,6 +141,10 @@ class Product(db.Model):
         if self.supplier_links:
             last_cost = float(self.supplier_links[0].unit_price)
 
+        primary_image = next((img.url for img in self.images if img.is_primary), None)
+        if not primary_image and self.images:
+            primary_image = self.images[0].url
+
         return {
             "id": self.id,
             "name": self.name,
@@ -158,7 +162,9 @@ class Product(db.Model):
             "discount_percent": float(self.discount_percent) if self.discount_percent else 0,
             "discount_expires_at": self.discount_expires_at.isoformat() if self.discount_expires_at else None,
             "sale_price": round(sale_price, 2),
-            "has_discount": has_discount
+            "has_discount": has_discount,
+            "image_url": primary_image,
+            "images": [img.to_dict() for img in self.images]
         }
 
 
@@ -595,12 +601,20 @@ class OrderDetail(db.Model):
     product = db.relationship("Product", backref=db.backref("order_details", lazy=True))
 
     def to_dict(self):
+        primary_image = None
+        if self.product:
+            primary_image = next((img.url for img in self.product.images if img.is_primary), None)
+            if not primary_image and self.product.images:
+                primary_image = self.product.images[0].url
+
         return {
             "id": self.id,
             "quantity": self.quantity,
             "price": float(self.price),
             "order_id": self.order_id,
-            "product_id": self.product_id
+            "product_id": self.product_id,
+            "product_name": self.product.name if self.product else f"Product #{self.product_id}",
+            "image_url": primary_image
         }
 
 

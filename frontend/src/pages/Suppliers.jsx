@@ -7,6 +7,9 @@ import {
   FiChevronUp, FiChevronDown, FiAlertTriangle, FiActivity, FiCalendar, FiDollarSign, FiShoppingBag, FiLayers, FiCheck, FiPlusCircle, FiMinusCircle, FiTag, FiBox, FiCamera, FiLoader, FiUploadCloud,
   FiEye, FiCreditCard, FiRefreshCw
 } from "react-icons/fi"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import axios from "axios"
+import { Skeleton } from "../components/Skeleton"
 
 /* ─── Helpers ─── */
 const AVATAR_COLORS = [
@@ -680,7 +683,7 @@ function SupplierProductCreateModal({ supplier, initialProduct, brands, categori
 
 /* ─── Supplier Details Modal ─── */
 function SupplierDetailsModal({ supplier, brands, categories, units, warehouses, onClose, onReceive, onCancel, onUpdate, refreshKey = 0 }) {
-  const { authFetch } = useAuth()
+  const { authFetch, resolveImageUrl } = useAuth()
   const { toast } = useToast()
   const [history, setHistory] = useState([])
   const [catalog, setCatalog] = useState([])
@@ -811,7 +814,7 @@ function SupplierDetailsModal({ supplier, brands, categories, units, warehouses,
             >
               {supplier.image_url ? (
                 <img 
-                  src={supplier.image_url} 
+                  src={resolveImageUrl(supplier.image_url)} 
                   alt={supplier.name} 
                   className="w-full h-full rounded-[1.5rem] object-cover shadow-xl border-2 border-white/20"
                 />
@@ -1060,11 +1063,12 @@ function SupplierDetailsModal({ supplier, brands, categories, units, warehouses,
                                <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
                                   {item.image_url ? (
                                     <img 
-                                      src={item.image_url.startsWith('http') ? item.image_url : `http://localhost:5000${item.image_url}`} 
+                                      src={resolveImageUrl(item.image_url)} 
                                       alt={item.product_name}
                                       className="w-full h-full object-cover"
                                     />
                                   ) : (
+
                                     <FiActivity size={20} className="text-slate-200"/>
                                   )}
                                </div>
@@ -1412,7 +1416,7 @@ function SupplierProfilePanel({ supplier, onClose, onView, onEdit, onNewPO }) {
         <div className="p-5 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-4">
             {supplier.image_url ? (
-              <img src={supplier.image_url} alt={supplier.name} className="w-16 h-16 rounded-2xl object-cover border border-slate-100 dark:border-slate-800" />
+              <img src={resolveImageUrl(supplier.image_url)} alt={supplier.name} className="w-16 h-16 rounded-2xl object-cover border border-slate-100 dark:border-slate-800" />
             ) : (
               <span className={`w-16 h-16 rounded-2xl ${avatarColor(supplier.id)} flex items-center justify-center text-white text-lg font-black`}>
                 {initials(supplier.name)}
@@ -1457,14 +1461,38 @@ function SupplierProfilePanel({ supplier, onClose, onView, onEdit, onNewPO }) {
 
 /* ─── Page ─── */
 export default function Suppliers() {
-  const { authFetch, user } = useAuth()
+  const { authFetch, resolveImageUrl } = useAuth()
+
   const { toast } = useToast()
-  const [suppliers, setSuppliers] = useState([])
-  const [warehouses, setWarehouses] = useState([])
-  const [brands, setBrands] = useState([])
-  const [categories, setCategories] = useState([])
-  const [units, setUnits] = useState([])
-  const [loading,   setLoading]   = useState(true)
+  const queryClient = useQueryClient()
+
+  // React Query Fetching
+  const { data: suppliers = [], isLoading: loadingSuppliers } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: () => axios.get('/suppliers').then(res => res.data)
+  })
+
+  const { data: warehouses = [] } = useQuery({
+    queryKey: ['warehouses'],
+    queryFn: () => axios.get('/inventory/warehouses').then(res => res.data)
+  })
+
+  const { data: brands = [] } = useQuery({
+    queryKey: ['brands'],
+    queryFn: () => axios.get('/brands').then(res => res.data)
+  })
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => axios.get('/categories').then(res => res.data)
+  })
+
+  const { data: units = [] } = useQuery({
+    queryKey: ['units'],
+    queryFn: () => axios.get('/units').then(res => res.data)
+  })
+
+  const loading = loadingSuppliers
   const [search,    setSearch]    = useState("")
   const [sort,      setSort]      = useState({ field:"name", dir:"asc" })
   
@@ -1477,62 +1505,87 @@ export default function Suppliers() {
   const [receiveTarget, setReceiveTarget] = useState(null)
   const [detailRefreshKey, setDetailRefreshKey] = useState(0)
 
-  useEffect(() => {
-    fetchInitialData()
-  }, [])
+  // Mutations
+  const supplierMutation = useMutation({
+    mutationFn: ({ url, method, data }) => axios({ url, method, data }),
+    onSuccess: (res, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      setModal(null)
+      toast(variables.method === 'POST' ? "New vendor registered" : "Supplier profile updated")
+    },
+    onError: (err) => toast(err.response?.data?.error || "Action failed", "error")
+  })
 
-  async function fetchInitialData() {
-    setLoading(true)
-    try {
-      const [sRes, wRes, bRes, cRes, uRes] = await Promise.all([
-        authFetch("/suppliers"),
-        authFetch("/inventory/warehouses"),
-        authFetch("/brands"),
-        authFetch("/categories"),
-        authFetch("/units")
-      ])
-      if (sRes.ok) setSuppliers(await sRes.json())
-      if (wRes.ok) setWarehouses(await wRes.json())
-      if (bRes.ok) setBrands(await bRes.json())
-      if (cRes.ok) setCategories(await cRes.json())
-      if (uRes.ok) setUnits(await uRes.json())
-    } catch (err) {
-      console.error("Critical error", err)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const deleteMutation = useMutation({
+    mutationFn: (id) => axios.delete(`/suppliers/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      setDelTarget(null)
+      toast("Supplier purged from system")
+    },
+    onError: (err) => toast(err.response?.data?.error || "Deletion failed", "error")
+  })
 
-  const totalPurchases = suppliers.reduce((s, p) => s + (p.purchases?.length || 0), 0)
-  const totalSourceProducts = suppliers.reduce((sum, supplier) => sum + (supplier.source_count || 0), 0)
-  const totalPurchaseOrders = suppliers.reduce((sum, supplier) => sum + (supplier.purchase_count || 0), 0)
-  const pendingOrders = suppliers.reduce((sum, supplier) => sum + (supplier.pending_purchase_count || 0), 0)
-  const outstandingAmount = suppliers.reduce((sum, supplier) => sum + Number(supplier.outstanding_amount || 0), 0)
+  const poMutation = useMutation({
+    mutationFn: (data) => axios.post('/purchases', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      setPoTarget(null)
+      toast("Purchase Order finalized")
+    },
+    onError: (err) => toast(err.response?.data?.error || "PO failed", "error")
+  })
 
+  const statusMutation = useMutation({
+    mutationFn: ({ id, data }) => axios.put(`/purchases/${id}/status`, data),
+    onSuccess: (res, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      setReceiveTarget(null)
+      setDetailRefreshKey(k => k + 1)
+      toast(variables.data.status === 'received' ? "Stock received" : "Order cancelled")
+    },
+    onError: (err) => toast(err.response?.data?.error || "Update failed", "error")
+  })
+
+  // ─── Derived State ───
   const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    return suppliers
-      .filter(s =>
-        (s.name || "").toLowerCase().includes(q) ||
-        (s.email || "").toLowerCase().includes(q) ||
-        (s.numbers || []).some(n => n.includes(q)) ||
-        (s.address || "").toLowerCase().includes(q)
-      )
-      .sort((a, b) => {
-        const va = sort.field === "purchases" ? (a.purchase_count || 0) : a[sort.field]
-        const vb = sort.field === "purchases" ? (b.purchase_count || 0) : b[sort.field]
-        if (typeof va === "string") return sort.dir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va)
-        return sort.dir === "asc" ? va - vb : vb - va
-      })
+    return suppliers.filter(s => 
+      s.name.toLowerCase().includes(search.toLowerCase()) ||
+      s.email.toLowerCase().includes(search.toLowerCase()) ||
+      s.numbers?.some(n => n.includes(search))
+    ).sort((a, b) => {
+      const field = sort.field
+      const dir = sort.dir === 'asc' ? 1 : -1
+      
+      const valA = a[field] ?? ""
+      const valB = b[field] ?? ""
+      
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        return valA.localeCompare(valB) * dir
+      }
+      
+      if (valA < valB) return -1 * dir
+      if (valA > valB) return 1 * dir
+      return 0
+    })
   }, [suppliers, search, sort])
 
   const selectedSupplier = useMemo(() => {
-    if (selectedSupplierId) {
-      const selected = suppliers.find(supplier => supplier.id === selectedSupplierId)
-      if (selected) return selected
-    }
-    return filtered[0] || suppliers[0] || null
-  }, [selectedSupplierId, suppliers, filtered])
+    return suppliers.find(s => s.id === selectedSupplierId) || null
+  }, [suppliers, selectedSupplierId])
+
+  const totalSourceProducts = useMemo(() => suppliers.reduce((acc, s) => acc + (s.source_count || 0), 0), [suppliers])
+  const pendingOrders = useMemo(() => suppliers.reduce((acc, s) => acc + (s.pending_purchase_count || 0), 0), [suppliers])
+  const outstandingAmount = useMemo(() => suppliers.reduce((acc, s) => acc + (s.outstanding_amount || 0), 0), [suppliers])
+
+  const fetchInitialData = () => {
+    queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+    queryClient.invalidateQueries({ queryKey: ['warehouses'] })
+    queryClient.invalidateQueries({ queryKey: ['brands'] })
+    queryClient.invalidateQueries({ queryKey: ['categories'] })
+    queryClient.invalidateQueries({ queryKey: ['units'] })
+  }
 
   function handleSort(f) {
     setSort(s => s.field === f ? { field:f, dir: s.dir==="asc" ? "desc" : "asc" } : { field:f, dir:"asc" })
@@ -1540,80 +1593,28 @@ export default function Suppliers() {
 
   async function handleSave(form) {
     const isEdit = !!modal.data?.id
-    const url = isEdit ? `/suppliers/${modal.data.id}` : "/suppliers"
-    const method = isEdit ? "PUT" : "POST"
-
-    try {
-      const res = await authFetch(url, { method, body: JSON.stringify(form) })
-      if (res.ok) { 
-        toast(isEdit ? "Supplier profile updated" : "New vendor registered")
-        setModal(null); 
-        fetchInitialData() 
-      }
-      else { toast((await res.json()).error || "Registration failure", "error") }
-    } catch (err) { toast("Vendor gateway timeout", "error") }
+    supplierMutation.mutate({
+      url: isEdit ? `/suppliers/${modal.data.id}` : "/suppliers",
+      method: isEdit ? "PUT" : "POST",
+      data: form
+    })
   }
 
   async function handleDelete() {
-    if (!delTarget) return
-    try {
-      const res = await authFetch(`/suppliers/${delTarget.id}`, { method: "DELETE" })
-      if (res.ok) { 
-        toast("Supplier purged from system")
-        fetchInitialData(); 
-        setDelTarget(null) 
-      }
-      else { toast((await res.json()).error, "error") }
-    } catch (err) { toast("Deletion procedure failed", "error") }
+    deleteMutation.mutate(delTarget.id)
   }
 
   async function handleCreatePO(data) {
-    try {
-      const res = await authFetch("/purchases", { method: "POST", body: JSON.stringify(data) })
-      if (res.ok) { 
-        toast("Purchase Order finalized and pending approval")
-        setPoTarget(null); 
-        fetchInitialData() 
-      }
-      else { toast((await res.json()).error, "error") }
-    } catch (err) { toast("PO generation failed", "error") }
+    poMutation.mutate(data)
   }
 
   async function handleReceive(id, warehouse_id) {
-    try {
-      const res = await authFetch(`/purchases/${id}/status`, { 
-        method: "PUT", 
-        body: JSON.stringify({ status: "received", warehouse_id }) 
-      })
-      if (res.ok) {
-        toast("Stock successfully received into warehouse inventory")
-        setReceiveTarget(null)
-        setDetailRefreshKey(key => key + 1)
-        fetchInitialData()
-      }
-      else { 
-        const errData = await res.json()
-        toast(errData.error || "Inventory update failed", "error") 
-      }
-    } catch (err) { toast("Inventory update failed", "error") }
+    statusMutation.mutate({ id, data: { status: "received", warehouse_id } })
   }
 
   async function handleCancel(id) {
     if (!window.confirm("Cancel this purchase order? This action is permanent.")) return
-    try {
-      const res = await authFetch(`/purchases/${id}/status`, {
-        method: "PUT",
-        body: JSON.stringify({ status: "cancelled" })
-      })
-      if (res.ok) {
-        toast("Purchase order cancelled and closed")
-        setDetailRefreshKey(key => key + 1)
-        fetchInitialData()
-      } else {
-        const errData = await res.json()
-        toast(errData.error || "Action failed", "error")
-      }
-    } catch (err) { toast("Network synchronization error", "error") }
+    statusMutation.mutate({ id, data: { status: "cancelled" } })
   }
 
   return (
@@ -1678,7 +1679,7 @@ export default function Suppliers() {
                         <th className="px-3 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] w-[14%]">Phone</th>
                         <SortTh label="Email" field="email" sort={sort} onSort={handleSort}/>
                         <th className="px-3 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] w-[10%]">Products</th>
-                        <SortTh label="Orders" field="purchases" sort={sort} onSort={handleSort} className="w-[9%]"/>
+                        <SortTh label="Orders" field="purchase_count" sort={sort} onSort={handleSort} className="w-[9%]"/>
                         <th className="px-4 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] w-[15%]">Action</th>
                       </tr>
                     </thead>
@@ -1697,8 +1698,9 @@ export default function Suppliers() {
                             <td className="px-3 py-4">
                               <div className="flex items-center gap-3">
                                 {s.image_url ? (
-                                  <img src={s.image_url} alt={s.name} className="w-10 h-10 rounded-xl object-cover border border-slate-100 dark:border-slate-800" />
+                                  <img src={resolveImageUrl(s.image_url)} alt={s.name} className="w-10 h-10 rounded-xl object-cover border border-slate-100 dark:border-slate-800" />
                                 ) : (
+
                                   <span className={`w-10 h-10 rounded-xl ${avatarColor(s.id)} flex items-center justify-center text-white text-[10px] font-black shrink-0`}>
                                     {initials(s.name)}
                                   </span>

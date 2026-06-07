@@ -287,7 +287,7 @@ def update_profile_image():
             res_data = response.json()
 
             if response.status_code == 200 and res_data.get("success"):
-                url = res_data["data"]["url"]
+                url = res_data["data"]["display_url"]
             else:
                 error_msg = res_data.get("error", {}).get("message", "Unknown ImgBB error")
                 return jsonify({"error": f"ImgBB Error: {error_msg}"}), response.status_code

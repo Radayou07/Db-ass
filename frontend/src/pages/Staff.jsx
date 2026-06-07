@@ -4,70 +4,55 @@ import { useToast } from "../context/ToastContext"
 import { 
   FiUserPlus, FiUsers, FiMail, FiPhone, FiShield, FiX, FiCheck, FiActivity, FiTrash2
 } from "react-icons/fi"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import axios from "axios"
+import { Skeleton } from "../components/Skeleton"
 
 export default function Staff() {
   const { authFetch, isAdmin } = useAuth()
   const { toast } = useToast()
-  const [staff, setStaff] = useState([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  
+  // React Query Fetching
+  const { data: staff = [], isLoading: loading } = useQuery({
+    queryKey: ['staff'],
+    queryFn: () => axios.get('/auth/staff').then(res => res.data)
+  })
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [form, setForm] = useState({
     name: "", number: "", email: "", password: "", role: "staff"
   })
 
-  useEffect(() => {
-    fetchStaff()
-  }, [])
+  // Mutations
+  const deleteMutation = useMutation({
+    mutationFn: (id) => axios.delete(`/auth/staff/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] })
+      toast("Staff record successfully purged from system")
+    },
+    onError: (err) => toast(err.response?.data?.error || "Failed", "error")
+  })
 
-  async function fetchStaff() {
-    setLoading(true)
-    try {
-      const res = await authFetch("/auth/staff")
-      if (res.ok) {
-        const data = await res.json()
-        setStaff(data)
-      }
-    } catch (err) {
-      console.error("Failed to fetch staff", err)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const enrollMutation = useMutation({
+    mutationFn: (data) => axios.post('/auth/staff', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] })
+      setIsModalOpen(false)
+      setForm({ name: "", number: "", email: "", password: "", role: "staff" })
+      toast("Staff member enrolled successfully!")
+    },
+    onError: (err) => toast(err.response?.data?.error || "Enrollment failed", "error")
+  })
 
-  const handleDeleteStaff = async (id) => {
+  const handleDeleteStaff = (id) => {
     if (!window.confirm("Remove this staff member from the system?")) return
-    try {
-      const res = await authFetch(`/auth/staff/${id}`, { method: "DELETE" })
-      if (res.ok) {
-        toast("Staff record successfully purged from system")
-        fetchStaff()
-      }
-      else {
-        const data = await res.json()
-        toast(data.error || "De-enrollment failed", "error")
-      }
-    } catch (err) { toast("Network synchronization error", "error") }
+    deleteMutation.mutate(id)
   }
 
-  const handleAddStaff = async (e) => {
+  const handleAddStaff = (e) => {
     e.preventDefault()
-    try {
-      const res = await authFetch("/auth/staff", {
-        method: "POST",
-        body: JSON.stringify(form)
-      })
-      if (res.ok) {
-        toast("Staff member enrolled successfully!")
-        setIsModalOpen(false)
-        setForm({ name: "", number: "", email: "", password: "", role: "staff" })
-        fetchStaff()
-      } else {
-        const data = await res.json()
-        toast(data.error || "Enrollment failed", "error")
-      }
-    } catch (err) {
-      toast("Access gateway timeout", "error")
-    }
+    enrollMutation.mutate(form)
   }
 
   if (!isAdmin) {
@@ -93,8 +78,8 @@ export default function Staff() {
 
       <div className="flex-1 bg-box-bg dark:bg-box-dark-bg rounded-2xl border border-black/[.04] dark:border-white/[.06] overflow-hidden flex flex-col">
         {loading ? (
-          <div className="flex-1 flex items-center justify-center text-sky-500 animate-pulse">
-            <FiActivity size={40} />
+          <div className="p-6 space-y-4">
+             {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}
           </div>
         ) : staff.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-10">

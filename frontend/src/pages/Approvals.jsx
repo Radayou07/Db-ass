@@ -53,6 +53,7 @@ function ReceiptModal({ purchase, warehouses, onClose, onConfirm }) {
 
 /* ─── Purchase Detail Modal ─── */
 function PurchaseDetailModal({ purchase, details, loading, onClose }) {
+  const { resolveImageUrl } = useAuth()
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
        <div className="bg-box-bg dark:bg-box-dark-bg w-full max-w-2xl rounded-[2.5rem] shadow-2xl border border-box-border dark:border-box-dark-border overflow-hidden flex flex-col max-h-[90vh]">
@@ -94,7 +95,7 @@ function PurchaseDetailModal({ purchase, details, loading, onClose }) {
                              <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
                                 {item.image_url ? (
                                   <img 
-                                    src={item.image_url.startsWith('http') ? item.image_url : `http://localhost:5000${item.image_url}`} 
+                                    src={resolveImageUrl(item.image_url)} 
                                     alt={item.product_name}
                                     className="w-full h-full object-cover"
                                   />

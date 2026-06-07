@@ -3,116 +3,98 @@ import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { useToast } from "../context/ToastContext"
 import { FiShoppingCart, FiTrash2, FiMinusCircle, FiPlusCircle, FiCheck, FiX, FiActivity, FiCreditCard, FiAlertCircle } from "react-icons/fi"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import axios from "axios"
+import { Skeleton } from "../components/Skeleton"
 
 export default function Cart() {
-  const { authFetch } = useAuth()
+  const { authFetch, resolveImageUrl } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   
-  const [cartItems, setCartItems] = useState([])
-  const [loading, setLoading] = useState(true)
+  // React Query Fetching
+  const { data: cartItems = [], isLoading: loading } = useQuery({
+    queryKey: ['cart'],
+    queryFn: () => axios.get('/cart').then(res => res.data)
+  })
+
   const [couponCode, setCouponCode] = useState("")
   const [discountInfo, setDiscountInfo] = useState(null)
   const [couponError, setCouponError] = useState("")
-  const [isApplying, setIsApplying] = useState(false)
   const [showQR, setShowQR] = useState(false)
-  const [placingOrder, setPlaceOrderLoading] = useState(false)
 
-  const fetchCart = async () => {
-    try {
-      const res = await authFetch("/cart")
-      if (res.ok) {
-        setCartItems(await res.json())
-      }
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
+  // Mutations
+  const updateQtyMutation = useMutation({
+    mutationFn: ({ id, qty }) => axios.patch(`/cart/${id}`, { quantity: qty }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] })
+      window.dispatchEvent(new Event('cart_updated'))
+      setDiscountInfo(null)
     }
-  }
+  })
 
-  useEffect(() => {
-    fetchCart()
-    window.addEventListener('cart_updated', fetchCart)
-    return () => window.removeEventListener('cart_updated', fetchCart)
-  }, [])
-
-
-  const updateQuantity = async (productId, newQty) => {
-    try {
-      await authFetch(`/cart/${productId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ quantity: newQty })
-      })
-      fetchCart()
+  const removeMutation = useMutation({
+    mutationFn: (id) => axios.delete(`/cart/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] })
       window.dispatchEvent(new Event('cart_updated'))
-      setDiscountInfo(null) // Reset coupon on cart change
-    } catch (err) {}
-  }
+      setDiscountInfo(null)
+    }
+  })
 
-  const removeItem = async (productId) => {
-    try {
-      await authFetch(`/cart/${productId}`, { method: "DELETE" })
-      fetchCart()
-      window.dispatchEvent(new Event('cart_updated'))
-      setDiscountInfo(null) // Reset coupon on cart change
-    } catch (err) {}
-  }
-
-  const applyCoupon = async () => {
-    if (!couponCode.trim()) return
-    setIsApplying(true)
-    setCouponError("")
-    try {
-      const res = await authFetch("/discount/apply", {
-        method: "POST",
-        body: JSON.stringify({ code: couponCode })
-      })
-      const data = await res.json()
-      if (data.valid) {
-        setDiscountInfo(data)
+  const couponMutation = useMutation({
+    mutationFn: (code) => axios.post('/discount/apply', { code }),
+    onSuccess: (res) => {
+      if (res.data.valid) {
+        setDiscountInfo(res.data)
       } else {
         setDiscountInfo(null)
-        setCouponError(data.message)
+        setCouponError(res.data.message)
       }
-    } catch (err) {
-      setCouponError("Network error checking coupon")
-    } finally {
-      setIsApplying(false)
-    }
+    },
+    onError: () => setCouponError("Network error checking coupon")
+  })
+
+  const orderMutation = useMutation({
+    mutationFn: (payload) => axios.post('/orders', payload),
+    onSuccess: (res, variables) => {
+      toast(variables.paid ? "Order placed and paid successfully!" : "Order placed successfully!")
+      queryClient.invalidateQueries({ queryKey: ['cart'] })
+      window.dispatchEvent(new Event('cart_updated'))
+      navigate("/orders")
+    },
+    onError: (err) => toast(err.response?.data?.error || "Failed", "error")
+  })
+
+  const updateQuantity = (productId, newQty) => {
+    updateQtyMutation.mutate({ id: productId, qty: newQty })
   }
 
-  const handleOrder = async (isPaid = false) => {
+  const removeItem = (productId) => {
+    removeMutation.mutate(productId)
+  }
+
+  const applyCoupon = () => {
+    if (!couponCode.trim()) return
+    setCouponError("")
+    couponMutation.mutate(couponCode)
+  }
+
+  const handleOrder = (isPaid = false) => {
     if (hasOutOfStockItems) {
       toast("Please remove out of stock items before checkout.", "error")
       return
     }
-
-    setPlaceOrderLoading(true)
-    try {
-      const res = await authFetch("/orders", {
-        method: "POST",
-        body: JSON.stringify({
-          paid: isPaid,
-          discount_id: discountInfo?.discount_id,
-          discount_amount: discountInfo?.coupon_savings
-        })
-      })
-      if (res.ok) {
-        toast(isPaid ? "Order placed and paid successfully!" : "Order placed successfully!")
-        window.dispatchEvent(new Event('cart_updated'))
-        navigate("/orders")
-      } else {
-        const err = await res.json()
-        toast(err.error || "Failed to place order", "error")
-      }
-    } catch (err) {
-      toast("Network error", "error")
-    } finally {
-      setPlaceOrderLoading(false)
-      setShowQR(false)
-    }
+    orderMutation.mutate({
+      paid: isPaid,
+      discount_id: discountInfo?.discount_id,
+      discount_amount: discountInfo?.coupon_savings
+    })
   }
+
+  const isApplying = couponMutation.isPending
+  const placingOrder = orderMutation.isPending
 
   // Calculations
   const originalSubtotal = cartItems.reduce((sum, item) => sum + ((item.product?.price || 0) * item.quantity), 0)
@@ -124,7 +106,17 @@ export default function Cart() {
   const hasOutOfStockItems = cartItems.some(item => item.product.stock <= 0)
 
   if (loading) {
-    return <div className="h-screen flex items-center justify-center text-sky-500 animate-pulse"><FiActivity size={40} /></div>
+    return (
+      <div className="min-h-screen p-6 max-w-7xl mx-auto space-y-8">
+         <Skeleton className="h-12 w-64" />
+         <div className="flex flex-col lg:flex-row gap-8">
+            <div className="flex-1 space-y-4">
+               {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-3xl" />)}
+            </div>
+            <Skeleton className="w-full lg:w-[380px] h-[500px] rounded-[2.5rem]" />
+         </div>
+      </div>
+    )
   }
 
   if (cartItems.length === 0) {
@@ -167,7 +159,7 @@ export default function Cart() {
               {/* Image */}
               <div className="w-full sm:w-32 h-32 bg-slate-50 dark:bg-slate-800 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center relative">
                 {item.product.images?.[0] ? (
-                  <img src={item.product.images[0].url} alt={item.product.name} className="w-full h-full object-cover" />
+                  <img src={resolveImageUrl(item.product.images[0].url)} alt={item.product.name} className="w-full h-full object-cover" />
                 ) : (
                   <FiShoppingCart className="text-slate-300" size={32} />
                 )}

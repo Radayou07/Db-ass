@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react"
 import { useAuth } from "../context/AuthContext"
 import { FiActivity, FiEdit2, FiPlus, FiTag, FiTrash2, FiX } from "react-icons/fi"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import axios from "axios"
+import { Skeleton } from "../components/Skeleton"
 
 const emptyBrand = { name: "", country: "" }
 
@@ -46,54 +49,48 @@ function BrandModal({ initial, onClose, onSave }) {
 
 export default function Brands() {
   const { authFetch } = useAuth()
-  const [brands, setBrands] = useState([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+
+  // React Query Fetching
+  const { data: brands = [], isLoading: loadingBrands } = useQuery({
+    queryKey: ['brands'],
+    queryFn: () => axios.get('/brands').then(res => res.data)
+  })
+
+  const loading = loadingBrands
   const [modal, setModal] = useState(null)
 
-  const fetchBrands = async () => {
-    setLoading(true)
-    try {
-      const res = await authFetch("/brands")
-      if (res.ok) setBrands(await res.json())
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Mutations
+  const brandMutation = useMutation({
+    mutationFn: ({ url, method, data }) => axios({ url, method, data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['brands'] })
+      setModal(null)
+    },
+    onError: (err) => alert(err.response?.data?.error || "Failed")
+  })
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-    fetchBrands()
-  }, [])
+  const deleteMutation = useMutation({
+    mutationFn: (id) => axios.delete(`/brands/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['brands'] }),
+    onError: (err) => alert(err.response?.data?.error || "Failed")
+  })
 
-  const saveBrand = async (form) => {
+  const saveBrand = (form) => {
     const isEdit = !!modal?.id
-    const res = await authFetch(isEdit ? `/brands/${modal.id}` : "/brands", {
+    brandMutation.mutate({
+      url: isEdit ? `/brands/${modal.id}` : "/brands",
       method: isEdit ? "PUT" : "POST",
-      body: JSON.stringify({
+      data: {
         name: form.name,
         country: form.country || null,
-      }),
+      }
     })
-
-    if (res.ok) {
-      setModal(null)
-      fetchBrands()
-      return
-    }
-
-    const err = await res.json()
-    alert(err.error || "Failed to save brand.")
   }
 
-  const deleteBrand = async (brand) => {
+  const deleteBrand = (brand) => {
     if (!confirm(`Delete ${brand.name}?`)) return
-    const res = await authFetch(`/brands/${brand.id}`, { method: "DELETE" })
-    if (res.ok) {
-      fetchBrands()
-      return
-    }
-    const err = await res.json()
-    alert(err.error || "Failed to delete brand.")
+    deleteMutation.mutate(brand.id)
   }
 
   return (
@@ -111,7 +108,9 @@ export default function Brands() {
 
         <div className="flex-1 overflow-hidden bg-box-bg dark:bg-box-dark-bg rounded-[2rem] border border-box-border dark:border-box-dark-border shadow-sm">
           {loading ? (
-            <div className="h-full flex items-center justify-center text-sky-500"><FiActivity className="animate-spin" size={42} /></div>
+            <div className="p-8 space-y-4">
+               {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-2xl" />)}
+            </div>
           ) : (
             <div className="h-full overflow-auto custom-scrollbar">
               <table className="w-full min-w-[640px]">

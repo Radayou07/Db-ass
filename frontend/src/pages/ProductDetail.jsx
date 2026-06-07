@@ -11,6 +11,7 @@ import {
 
 /* ─── Add to Cart Modal (Same as Products page for consistency) ─── */
 function AddToCartModal({ product, onConfirm, onClose }) {
+  const { resolveImageUrl } = useAuth()
   const [qty, setQty] = useState(1)
 
   return (
@@ -23,7 +24,7 @@ function AddToCartModal({ product, onConfirm, onClose }) {
 
         <div className="flex gap-5 mb-8 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-black/5 dark:border-white/5">
           <div className="w-16 h-16 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden border border-black/5 dark:border-white/5 shadow-sm shrink-0">
-             {product.images?.[0] ? <img src={product.images[0].url} className="w-full h-full object-cover"/> : <FiPackage className="text-slate-300" size={24}/>}
+             {product.images?.[0] ? <img src={resolveImageUrl(product.images[0].url)} className="w-full h-full object-cover"/> : <FiPackage className="text-slate-300" size={24}/>}
           </div>
           <div className="min-w-0">
             <p className="font-bold text-sm truncate text-slate-800 dark:text-white">{product.name}</p>
@@ -79,7 +80,7 @@ function AddToCartModal({ product, onConfirm, onClose }) {
 export default function ProductDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user, authFetch } = useAuth()
+  const { user, authFetch, resolveImageUrl } = useAuth()
   const { toast } = useToast()
   
   const [product, setProduct] = useState(null)
@@ -189,7 +190,7 @@ export default function ProductDetail() {
           <div className="lg:w-1/2 p-8 lg:p-12 space-y-6 bg-slate-50 dark:bg-slate-900/30 border-r border-slate-100 dark:border-slate-800">
              <div className="aspect-square w-full rounded-3xl bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 shadow-inner overflow-hidden flex items-center justify-center relative group/gallery">
                 {images[activeImage]?.url ? (
-                  <img src={images[activeImage].url} className="w-full h-full object-contain p-4 transition-all duration-700" alt={product.name} />
+                  <img src={resolveImageUrl(images[activeImage].url)} className="w-full h-full object-contain p-4 transition-all duration-700" alt={product.name} />
                 ) : (
                   <FiPackage size={120} className="text-slate-200 dark:text-slate-600" />
                 )}
@@ -247,7 +248,7 @@ export default function ProductDetail() {
                       onClick={() => setActiveImage(idx)}
                       className={`aspect-square rounded-2xl border-2 transition-all overflow-hidden ${activeImage === idx ? 'border-sky-500 scale-105 shadow-md shadow-sky-100 dark:shadow-none' : 'border-transparent opacity-60 hover:opacity-100'}`}
                     >
-                       <img src={img.url} className="w-full h-full object-cover" />
+                       <img src={resolveImageUrl(img.url)} className="w-full h-full object-cover" />
                     </button>
                   ))}
                </div>
